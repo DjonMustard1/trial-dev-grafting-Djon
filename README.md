@@ -3,7 +3,6 @@
 [![Build](https://github.com/DjonMustard1/trial-dev-grafting-Djon/actions/workflows/build.yml/badge.svg)](https://github.com/DjonMustard1/trial-dev-grafting-Djon/actions/workflows/build.yml)
 ![Paper](https://img.shields.io/badge/Paper-26.2-blue)
 ![Java](https://img.shields.io/badge/Java-25-orange)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A small, standalone Paper plugin that brings **Reassembly (Grafting)**, the
 Sequence 1 ability of the Attendant of Mysteries (Fool Pathway, *Lord of the
@@ -80,7 +79,3 @@ for project scaffolding, implementation help, and code review.
 - *Lord of the Mysteries* by Cuttlefish That Loves Diving. This is an
   unofficial fan project and is not affiliated with the author or publishers.
 - Built on the [Paper](https://papermc.io/) API.
-
-## License
-
-Released under the [MIT License](LICENSE).
