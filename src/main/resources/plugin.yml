@@ -1,0 +1,6 @@
+name: Grafting
+version: '${version}'
+main: dev.djon.grafting.GraftingPlugin
+api-version: '26.2'
+description: Reassembly (Grafting) from the Attendant of Mysteries, Fool Pathway.
+author: DjonMustard1
