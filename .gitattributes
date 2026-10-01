@@ -1,0 +1,10 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Windows scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.jar binary
+*.png binary
