@@ -12,7 +12,7 @@ import java.io.File;
  * Grafting: shift + right-click blocks and mobs to graft random fanart onto them,
  * or shift + right-click the air to graft fanart onto everything you shoot.
  */
-public final class GraftingPlugin extends JavaPlugin {
+public class GraftingPlugin extends JavaPlugin {
 
     private GraftManager grafts;
     private GraftListener listener;
