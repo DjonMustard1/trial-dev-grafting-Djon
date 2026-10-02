@@ -383,6 +383,21 @@ class GraftingPluginTest {
     }
 
     @Test
+    void uncreditedMobAndProjectilesDoNotPostChatCredits() throws IOException {
+        addFanart("a");
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        rightClickEntity(zombie);
+        assertEquals(null, nextPlainMessage());
+
+        rightClickAir();
+        player.nextMessage(); // projectile mode toggle
+        Arrow arrow = world.spawn(player.getEyeLocation(), Arrow.class);
+        arrow.setShooter(player);
+        server.getPluginManager().callEvent(new ProjectileLaunchEvent(arrow));
+        assertEquals(null, nextPlainMessage());
+    }
+
+    @Test
     void graftingAMobCreditsTheArtistInChat() throws IOException {
         addCreditedFanart();
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
