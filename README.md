@@ -83,7 +83,7 @@ Credits live in `plugins/Grafting/fanart/credits.yml`, keyed by file name:
   link: https://x.com/janedoe
 ```
 
-Images without an entry are shown as "Unknown artist" and a warning is logged.
+Credits are optional. Images without an entry load normally and do not post a credit in chat.
 
 Images are scaled automatically: 128 x 128 for map art, and up to 32 pixels
 on the longest side for text art. Both can be tuned in `config.yml`.

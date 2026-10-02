@@ -17,8 +17,7 @@ import java.util.logging.Logger;
  *   social: "@janedoe on X"
  *   link: https://x.com/janedoe
  * </pre>
- * File names are matched case-insensitively. Images without an entry are credited
- * as "Unknown artist" and a warning is logged so the owner can fill it in.
+ * File names are matched case-insensitively. Images without an entry have no chat credit.
  */
 public final class CreditsFile {
 

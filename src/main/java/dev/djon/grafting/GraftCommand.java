@@ -62,8 +62,11 @@ public final class GraftCommand implements TabExecutor {
         }
         sender.sendMessage(Component.text("Fanart library (" + entries.size() + "):", NamedTextColor.GOLD));
         for (Fanart art : entries) {
-            sender.sendMessage(Component.text(" - " + art.name() + ": ", NamedTextColor.GRAY)
-                    .append(Messages.credit(art.credit())));
+            Component line = Component.text(" - " + art.name(), NamedTextColor.GRAY);
+            if (art.credit().hasAttribution()) {
+                line = line.append(Component.text(": ", NamedTextColor.GRAY)).append(Messages.credit(art.credit()));
+            }
+            sender.sendMessage(line);
         }
     }
 

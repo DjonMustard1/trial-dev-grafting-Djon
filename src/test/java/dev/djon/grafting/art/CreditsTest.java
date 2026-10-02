@@ -52,6 +52,7 @@ class CreditsTest {
         FanartLibrary library = new FanartLibrary(dir.toFile(), LOG, 16);
         library.load();
         assertEquals("Unknown artist", library.entries().get(0).credit().artist());
+        assertFalse(library.entries().get(0).credit().hasAttribution());
     }
 
     @Test
@@ -67,6 +68,7 @@ class CreditsTest {
         assertEquals("Unknown artist", credit.artist());
         assertFalse(credit.hasSocial());
         assertFalse(credit.hasLink());
+        assertFalse(credit.hasAttribution());
     }
 
     @Test

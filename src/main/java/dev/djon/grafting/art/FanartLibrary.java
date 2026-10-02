@@ -55,7 +55,6 @@ public final class FanartLibrary {
                     }
                     Credit credit = credits.get(CreditsFile.normalize(file.getName()));
                     if (credit == null) {
-                        logger.warning("No credit for " + file.getName() + " in " + CreditsFile.FILE_NAME);
                         credit = Credit.UNKNOWN;
                     }
                     loaded.add(process(stripExtension(file.getName()), image, textArtSize, credit));

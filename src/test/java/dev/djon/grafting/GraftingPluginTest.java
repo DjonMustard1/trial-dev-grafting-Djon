@@ -370,6 +370,19 @@ class GraftingPluginTest {
     }
 
     @Test
+    void uncreditedFanartGraftsWithoutChatCredit() throws IOException {
+        addFanart("a");
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE);
+        rightClickBlock(block, BlockFace.NORTH);
+        assertEquals(null, nextPlainMessage());
+
+        player.performCommand("graft list");
+        player.nextMessage();
+        assertEquals(" - a", nextPlainMessage());
+    }
+
+    @Test
     void graftingAMobCreditsTheArtistInChat() throws IOException {
         addCreditedFanart();
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);

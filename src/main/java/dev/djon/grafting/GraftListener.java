@@ -229,7 +229,9 @@ public final class GraftListener implements Listener {
     /** Credits the artist in chat. */
     private void credit(Player player, Fanart art) {
         player.sendActionBar(Messages.GRAFTED);
-        player.sendMessage(Messages.credit(art.credit()));
+        if (art.credit().hasAttribution()) {
+            player.sendMessage(Messages.credit(art.credit()));
+        }
     }
 
     /**
@@ -237,6 +239,9 @@ public final class GraftListener implements Listener {
      * several times a second, so each player gets at most one credit line per window.
      */
     private void creditProjectile(Player player, Fanart art) {
+        if (!art.credit().hasAttribution()) {
+            return;
+        }
         long now = System.currentTimeMillis();
         Long last = lastProjectileCredit.get(player.getUniqueId());
         if (last == null || now - last >= PROJECTILE_CREDIT_COOLDOWN_MS) {

@@ -21,6 +21,10 @@ public record Credit(String artist, String social, String link) {
         return !social.isEmpty();
     }
 
+    public boolean hasAttribution() {
+        return !artist.equals("Unknown artist");
+    }
+
     /** Only http(s) links are made clickable. */
     public boolean hasLink() {
         return link.startsWith("https://") || link.startsWith("http://");
