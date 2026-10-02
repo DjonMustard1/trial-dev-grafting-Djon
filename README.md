@@ -61,7 +61,8 @@ itself stops existing.
 ## Adding fanart
 
 1. Start the server once so `plugins/Grafting/fanart/` is created.
-2. Drop images into that folder (PNG, JPG, GIF, or BMP, any size).
+2. Drop images into that folder (PNG, JPG, GIF, or BMP, any size). WebP is not
+   supported by Java's image reader, so convert those to PNG first.
 3. Run `/graft reload`.
 
 Images are scaled automatically: 128 x 128 for map art, and up to 32 pixels
@@ -104,7 +105,9 @@ cd trial-dev-grafting-Djon
 ./gradlew build        # Windows: gradlew.bat build
 ```
 
-The plugin jar is written to `build/libs/`. `build` also runs the unit tests.
+The plugin jar is written to `build/libs/`. `build` also runs the tests (34: image
+pipeline unit tests and simulated-server tests with [MockBukkit](https://github.com/MockBukkit/MockBukkit)).
+Gradle downloads a Java 25 runtime for the tests automatically if you do not have one.
 
 ## How it works
 
@@ -134,7 +137,8 @@ src/main/java/dev/djon/grafting
     ├── ArtProcessor.java   Image scaling and color reduction
     ├── PixelArtText.java   Pixel grid to colored text
     └── FanartMaps.java     One reusable map per fanart
-src/test/java               Unit tests for the image pipeline and library
+src/test/java               Unit tests for the image pipeline, plus MockBukkit tests
+                            that load the plugin and drive clicks, commands, and cleanup
 ```
 
 ## AI usage disclosure
