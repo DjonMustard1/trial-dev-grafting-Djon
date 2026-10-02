@@ -11,9 +11,10 @@ import org.bukkit.entity.Player;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.IntStream;
 
 /**
- * /graft [list | reload | clear | projectiles | size &lt;1-10&gt;]
+ * {@code /graft [list | reload | clear | projectiles | size <1-10>]}
  */
 public final class GraftCommand implements TabExecutor {
 
@@ -112,7 +113,7 @@ public final class GraftCommand implements TabExecutor {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 2 && args[0].equalsIgnoreCase("size")) {
-            return java.util.stream.IntStream.rangeClosed(1, GraftManager.MAX_WIDTH).mapToObj(String::valueOf)
+            return IntStream.rangeClosed(1, GraftManager.MAX_WIDTH).mapToObj(String::valueOf)
                     .filter(s -> s.startsWith(args[1])).toList();
         }
         if (args.length != 1) {

@@ -3,14 +3,11 @@ package dev.djon.grafting;
 import dev.djon.grafting.art.Fanart;
 import io.papermc.paper.event.player.PlayerPickBlockEvent;
 import io.papermc.paper.event.player.PlayerPickEntityEvent;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Hanging;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.Event;
@@ -29,21 +26,29 @@ import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.util.RayTraceResult;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.util.RayTraceResult;
 
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 /**
  * Player input and cleanup.
- * Shift + right-click a block or mob grafts it. Shift + right-click the air toggles
- * projectile grafting. Grafts vanish when their target is destroyed.
+ * <ul>
+ *   <li>Shift + right-click a block or mob: purple potion swirls charge where the art
+ *       will appear, then the graft lands.</li>
+ *   <li>Shift + middle-click: cycle the graft size and resize art you are looking at.</li>
+ *   <li>Shift + right-click the air: toggle projectile grafting.</li>
+ * </ul>
+ * Grafts vanish when their target is destroyed.
  */
 public final class GraftListener implements Listener {
 
@@ -55,7 +60,8 @@ public final class GraftListener implements Listener {
             Material.FIRE_CHARGE, Material.FISHING_ROD);
 
     private final GraftManager grafts;
-    private final org.bukkit.plugin.Plugin plugin;
+    private final Plugin plugin;
+    private final int chargeTicks;
     /** Players whose graft is still charging, so repeated clicks do not stack. */
     private final Set<UUID> charging = new HashSet<>();
     private final Set<UUID> projectileMode = new HashSet<>();
@@ -71,23 +77,18 @@ public final class GraftListener implements Listener {
     static final long PROJECTILE_CREDIT_COOLDOWN_MS = 2000;
     private final Map<UUID, Long> lastProjectileCredit = new HashMap<>();
 
-    public GraftListener(GraftManager grafts, org.bukkit.plugin.Plugin plugin) {
+    public GraftListener(GraftManager grafts, Plugin plugin, GraftSettings settings) {
         this.grafts = grafts;
         this.plugin = plugin;
-    }
-
-    /** Ticks the purple potion swirl plays where the art will appear before it does. */
-    private int chargeTicks() {
-        return Math.max(0, Math.min(100, plugin.getConfig().getInt("effects.charge-ticks", 16)));
+        this.chargeTicks = settings.chargeTicks();
     }
 
     /**
      * Plays {@code swirl} every few ticks for the charge time, then runs {@code graft}.
      * With no charge time the graft happens at once.
      */
-    private void charge(Player player, Runnable swirl, java.util.function.BooleanSupplier stillValid, Runnable graft) {
-        int ticks = chargeTicks();
-        if (ticks == 0) {
+    private void charge(Player player, Runnable swirl, BooleanSupplier stillValid, Runnable graft) {
+        if (chargeTicks == 0) {
             graft.run();
             return;
         }
@@ -95,7 +96,7 @@ public final class GraftListener implements Listener {
         if (!charging.add(id)) {
             return;
         }
-        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_WITCH_DRINK, 0.35f, 1.4f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITCH_DRINK, 0.35f, 1.4f);
         swirl.run();
         int[] elapsed = {0};
         plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
@@ -105,7 +106,7 @@ public final class GraftListener implements Listener {
                 task.cancel();
                 return;
             }
-            if (elapsed[0] >= ticks) {
+            if (elapsed[0] >= chargeTicks) {
                 charging.remove(id);
                 task.cancel();
                 graft.run();
@@ -324,7 +325,7 @@ public final class GraftListener implements Listener {
             player.sendMessage(Messages.noArt(grafts.library()));
             return;
         }
-        java.util.List<Block> footprint = grafts.previewBlock(block, face, width, art);
+        List<Block> footprint = grafts.previewBlock(block, face, width, art);
         if (footprint.isEmpty()) {
             player.sendActionBar(Messages.NO_SPACE);
             return;

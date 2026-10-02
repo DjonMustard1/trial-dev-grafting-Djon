@@ -1,9 +1,11 @@
 package dev.djon.grafting.art;
 
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -37,7 +39,7 @@ public final class CreditsFile {
         yaml.options().pathSeparator('/');
         try {
             yaml.load(file);
-        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+        } catch (IOException | InvalidConfigurationException e) {
             logger.warning("Could not read " + FILE_NAME + ": " + e.getMessage());
             return credits;
         }

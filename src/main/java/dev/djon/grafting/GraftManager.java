@@ -4,6 +4,7 @@ import dev.djon.grafting.art.Fanart;
 import dev.djon.grafting.art.FanartLibrary;
 import dev.djon.grafting.art.FanartMaps;
 import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -21,6 +22,7 @@ import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -40,7 +42,7 @@ import java.util.UUID;
 public final class GraftManager {
 
     /** Largest graft, in blocks per side. */
-    public static final int MAX_WIDTH = 10;
+    public static final int MAX_WIDTH = FanartLibrary.MAX_TILES;
 
     /** Height in blocks of one line of text in a text display at scale 1. */
     private static final float TEXT_LINE_HEIGHT = 0.25f;
@@ -110,7 +112,7 @@ public final class GraftManager {
         GraftId id = new GraftId(BlockKey.of(block), face);
         BlockGraft existing = blockGrafts.get(id);
         if (existing != null && existing.width() == width && allFramesLive(block.getWorld(), existing)
-                && java.util.Arrays.equals(FanartMaps.gridFor(existing.art(), width), FanartMaps.gridFor(art, width))) {
+                && Arrays.equals(FanartMaps.gridFor(existing.art(), width), FanartMaps.gridFor(art, width))) {
             // Same graft again: swap the art in place.
             BlockGraft swapped = new BlockGraft(art, width, new ArrayList<>());
             for (Tile tile : existing.tiles()) {
@@ -152,7 +154,7 @@ public final class GraftManager {
 
     private void potionSwirl(World world, BlockFace face, BlockGraft graft) {
         for (Tile tile : graft.tiles()) {
-            GraftEffects.potionSwirlOnFace(new org.bukkit.Location(world,
+            GraftEffects.potionSwirlOnFace(new Location(world,
                     tile.support().x() + 0.5, tile.support().y() + 0.5, tile.support().z() + 0.5), face);
         }
     }
@@ -415,7 +417,7 @@ public final class GraftManager {
         return graft.tiles().stream().allMatch(tile -> liveFrame(world, tile.frameId()) != null);
     }
 
-    private org.bukkit.Location centerOf(World world, BlockGraft graft) {
+    private Location centerOf(World world, BlockGraft graft) {
         double x = 0, y = 0, z = 0;
         for (Tile tile : graft.tiles()) {
             x += tile.support().x() + 0.5;
@@ -427,7 +429,7 @@ public final class GraftManager {
         if (count == 1 && any != null) {
             return any.getLocation();
         }
-        return new org.bukkit.Location(world, x / count, y / count, z / count);
+        return new Location(world, x / count, y / count, z / count);
     }
 
     private ItemFrame liveFrame(World world, UUID id) {

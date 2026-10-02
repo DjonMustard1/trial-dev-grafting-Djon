@@ -1,6 +1,8 @@
 package dev.djon.grafting;
 
 import io.papermc.paper.event.player.PlayerPickEntityEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -19,6 +21,8 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.MapMeta;
+import org.joml.Vector3f;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,8 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -240,7 +246,7 @@ class GraftingPluginTest {
         assertEquals(4, count(ItemFrame.class), "2x2 art should hang as four map tiles");
         assertEquals(0, count(ItemDisplay.class));
         assertEquals(4, world.getEntitiesByClass(ItemFrame.class).stream()
-                .map(frame -> ((org.bukkit.inventory.meta.MapMeta) frame.getItem().getItemMeta()).getMapView().getId())
+                .map(frame -> ((MapMeta) frame.getItem().getItemMeta()).getMapView().getId())
                 .distinct().count(), "each tile shows its own part of the picture");
     }
 
@@ -280,7 +286,7 @@ class GraftingPluginTest {
                     new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1));
             seen[i] = plugin.listener().width(player);
         }
-        assertEquals(List.of(2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2), java.util.Arrays.stream(seen).boxed().toList());
+        assertEquals(List.of(2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2), Arrays.stream(seen).boxed().toList());
     }
 
     @Test
@@ -356,9 +362,9 @@ class GraftingPluginTest {
         addFanart("a");
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
         plugin.grafts().graftMob(zombie, 1);
-        org.joml.Vector3f small = ((TextDisplay) zombie.getPassengers().get(0)).getTransformation().getScale();
+        Vector3f small = ((TextDisplay) zombie.getPassengers().get(0)).getTransformation().getScale();
         plugin.grafts().resizeMob(zombie, 3);
-        org.joml.Vector3f big = ((TextDisplay) zombie.getPassengers().get(0)).getTransformation().getScale();
+        Vector3f big = ((TextDisplay) zombie.getPassengers().get(0)).getTransformation().getScale();
         assertEquals(small.x * 3, big.x, 0.001f);
         assertEquals(small.y * 3, big.y, 0.001f);
     }
@@ -382,19 +388,14 @@ class GraftingPluginTest {
     }
 
     @Test
-    void mobTextFallbackIsUsedWhenConfigured() throws IOException {
-        plugin.getConfig().set("mob-display", "text");
-        // Settings are read on enable, so build a fresh manager path by reloading the plugin.
-        plugin.saveConfig();
-        server.getPluginManager().disablePlugin(plugin);
-        server.getPluginManager().enablePlugin(plugin);
+    void mobArtHasAnOpaqueBackgroundSoPixelGapsDoNotShow() throws IOException {
         addFanart("a");
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
 
         rightClickEntity(zombie);
 
-        assertEquals(1, zombie.getPassengers().size());
-        assertTrue(zombie.getPassengers().get(0) instanceof TextDisplay);
+        TextDisplay art = (TextDisplay) zombie.getPassengers().get(0);
+        assertEquals(255, art.getBackgroundColor().getAlpha());
     }
 
     @Test
@@ -513,15 +514,15 @@ class GraftingPluginTest {
 
     private void addCreditedFanart() throws IOException {
         File folder = new File(plugin.getDataFolder(), "fanart");
-        java.nio.file.Files.writeString(new File(folder, "credits.yml").toPath(),
+        Files.writeString(new File(folder, "credits.yml").toPath(),
                 "\"a.png\":\n  artist: Jane Doe\n  social: \"@janedoe on X\"\n");
         addFanart("a");
     }
 
     private String nextPlainMessage() {
-        net.kyori.adventure.text.Component message = player.nextComponentMessage();
+        Component message = player.nextComponentMessage();
         return message == null ? null
-                : net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(message);
+                : PlainTextComponentSerializer.plainText().serialize(message);
     }
 
     @Test
@@ -595,16 +596,7 @@ class GraftingPluginTest {
         assertEquals(" - a: Art by Jane Doe (@janedoe on X)", nextPlainMessage());
     }
 
-    // ------------------------------------------------------------- helpers
-
-    /** Clicks, then waits out the potion charge-up so the art has appeared. */
-    private void rightClickBlock(Block block, BlockFace face) {
-        server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
-                player.getInventory().getItemInMainHand(), block, face, EquipmentSlot.HAND));
-        server.getScheduler().performTicks(CHARGE);
-    }
-
-    private static final int CHARGE = 20;
+    // ----------------------------------------------------- potion charge-up
 
     @Test
     void artAppearsOnlyAfterPotionChargeUp() throws IOException {
@@ -614,7 +606,7 @@ class GraftingPluginTest {
         server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
                 player.getInventory().getItemInMainHand(), block, BlockFace.NORTH, EquipmentSlot.HAND));
         assertEquals(0, count(ItemFrame.class), "swirls first, art after");
-        server.getScheduler().performTicks(CHARGE);
+        server.getScheduler().performTicks(CHARGE_TICKS);
         assertEquals(1, count(ItemFrame.class));
     }
 
@@ -626,7 +618,7 @@ class GraftingPluginTest {
         server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
                 player.getInventory().getItemInMainHand(), block, BlockFace.NORTH, EquipmentSlot.HAND));
         block.setType(Material.AIR);
-        server.getScheduler().performTicks(CHARGE);
+        server.getScheduler().performTicks(CHARGE_TICKS);
         assertEquals(0, count(ItemFrame.class));
     }
 
@@ -636,8 +628,20 @@ class GraftingPluginTest {
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
         server.getPluginManager().callEvent(new PlayerInteractEntityEvent(player, zombie, EquipmentSlot.HAND));
         assertTrue(zombie.getPassengers().isEmpty());
-        server.getScheduler().performTicks(CHARGE);
+        server.getScheduler().performTicks(CHARGE_TICKS);
         assertEquals(1, zombie.getPassengers().size());
+    }
+
+    // ------------------------------------------------------------- helpers
+
+    /** Longer than the default potion charge-up, so the art has appeared afterwards. */
+    private static final int CHARGE_TICKS = 20;
+
+    /** Shift + right-clicks a block face and waits for the graft to land. */
+    private void rightClickBlock(Block block, BlockFace face) {
+        server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
+                player.getInventory().getItemInMainHand(), block, face, EquipmentSlot.HAND));
+        server.getScheduler().performTicks(CHARGE_TICKS);
     }
 
     private void rightClickAir() {
@@ -645,8 +649,9 @@ class GraftingPluginTest {
                 player.getInventory().getItemInMainHand(), null, BlockFace.SELF, EquipmentSlot.HAND));
     }
 
+    /** Shift + right-clicks an entity and waits for the graft to land. */
     private void rightClickEntity(Entity target) {
         server.getPluginManager().callEvent(new PlayerInteractEntityEvent(player, target, EquipmentSlot.HAND));
-        server.getScheduler().performTicks(CHARGE);
+        server.getScheduler().performTicks(CHARGE_TICKS);
     }
 }

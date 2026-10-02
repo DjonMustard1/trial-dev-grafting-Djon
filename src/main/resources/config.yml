@@ -1,6 +1,5 @@
 # Grafting configuration
-
-# Mobs use billboarded text art rather than block-attached item frames.
+# Changes take effect after a server restart.
 
 effects:
   # How long, in ticks (20 = 1 second), purple potion swirls gather where the art
@@ -8,10 +7,12 @@ effects:
   charge-ticks: 16
 
 text-art:
-  # Longest side of text art in pixels (8 to 64). Higher looks better but costs more bandwidth.
+  # Mobs and projectiles show their art as billboarded pixel text that faces the viewer.
+  # Longest side of that art in pixels (8 to 64). Higher looks sharper but sends more data.
   resolution: 48
-  # Height of the art in blocks.
+  # Height of mob art in blocks at size 1x. Larger graft sizes multiply this.
   mob-size: 2.0
+  # Height of projectile art in blocks.
   projectile-size: 1.0
-  # Vertical stretch. Lower this if text pixels look too tall, raise it if they look flat.
+  # Vertical stretch. Lower this if pixels look too tall, raise it if they look flat.
   y-stretch: 1.0

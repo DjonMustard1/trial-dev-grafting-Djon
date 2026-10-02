@@ -22,27 +22,22 @@ itself stops existing.
 
 ## Features
 
-- **Blocks:** the clicked face is overlaid with a sharp 128 x 128 map render of
-  the fanart. Break the block and the art goes with it.
-- **Adjustable size:** shift + middle-click (or `/graft size <1-10>`) to pick 1x1 up to 10x10. Big art is cut
-  into a grid of map tiles, one per block, so it stays just as sharp. The grid follows
-  the picture's shape (a wide banner at 4x becomes 4 x 1), and if the wall is too
-  small the largest size that fits is used.
-- **Mobs and other entities:** billboarded pixel art rides on the target,
-  facing the viewer instead of using an unreliable block-attached item frame.
-  Kill or remove the target and the art vanishes.
-- **Projectiles:** toggle projectile grafting and everything you shoot or throw
-  (arrows, tridents, snowballs, eggs, pearls, potions, wind charges) carries a
-  piece of pixel art until it lands.
-- **Random library:** every graft picks a random image, never the same one twice
-  in a row.
+- **Blocks:** the clicked face becomes a sharp map render of the fanart.
+- **Any size, still sharp:** grafts go from 1x1 up to 10x10 blocks. Big art is cut
+  into one 128 x 128 map per block, and the grid follows the picture's shape (a wide
+  banner at 4x is 4 x 1). If the wall is too small, the largest size that fits is used.
+- **Mobs:** billboarded pixel art rides on any mob and always faces the viewer.
+- **Projectiles:** with projectile grafting on, everything you shoot or throw
+  (arrows, tridents, snowballs, eggs, pearls, potions, wind charges) carries art
+  until it lands.
+- **Purple ritual:** potion swirls gather on every block (or around the mob) where
+  the art is about to appear, then it lands with a purple firework-like burst.
+  Breaking the block or killing the mob mid-swirl cancels the graft.
+- **Random library:** every graft picks a random image, never the same one twice in a row.
+- **Artist credits:** grafting credited art posts the artist and a clickable social in chat.
 - **Temporary by design:** graft entities are never saved, so a restart wipes them.
-  While the server runs, grafts survive chunk reloads, and block art disappears if
-  its block is removed in any way (mined, pushed by a piston, washed away, exploded).
-- Purple potion swirls gather on every block (or around the mob) where the art
-  is about to appear, then the art lands with a purple firework-like burst. Gray
-  motes when a graft breaks. If the block is broken or the mob dies while the
-  swirl is charging, nothing is grafted.
+  While the server runs, grafts survive chunk reloads and disappear the moment their
+  target is gone (mined, pushed by a piston, washed away, exploded, killed, landed).
 
 ## Usage
 
@@ -50,18 +45,18 @@ itself stops existing.
 |--------|--------|
 | Shift + right-click a block | Graft fanart onto that face (again to swap it) |
 | Shift + right-click a mob | Graft fanart onto the mob (again to swap it) |
-| Shift + middle-click a block, art, or mob | Cycle graft size 1x up to 10x, then back to 1x. Existing art you point at resizes right away, and the size applies to your next grafts |
-| Shift + right-click the air | Toggle projectile grafting on or off (hold any item that is not a bow, trident, or throwable) |
+| Shift + middle-click | Cycle graft size 1x to 10x. Art you are looking at resizes right away |
+| Shift + right-click the air | Toggle projectile grafting (hold any item that is not a bow, trident, or throwable) |
 
 > The Minecraft client does not tell the server about right-clicks on air with an
-> empty hand, so hold any normal item (or use `/graft projectiles`) to toggle.
+> empty hand, so hold any normal item, or use `/graft projectiles`.
 
 | Command | Permission | Description |
 |---------|------------|-------------|
 | `/graft` | | Help |
-| `/graft list` | | List the loaded fanart |
+| `/graft list` | | List the loaded fanart and its artists |
+| `/graft size <1-10>` | `grafting.use` | Set the graft size directly |
 | `/graft projectiles` | `grafting.use` | Toggle projectile grafting |
-| `/graft size <1-10>` | `grafting.use` | Jump straight to a graft size |
 | `/graft reload` | `grafting.admin` | Reload images from the fanart folder |
 | `/graft clear` | `grafting.admin` | Remove every active graft |
 
@@ -76,44 +71,36 @@ itself stops existing.
 
 ### Crediting artists
 
-When an image has an artist entry, grafting it posts the artist's name and social in chat, for example
-`Art by Jane Doe (@janedoe on X)`. If a link is set, the social is clickable.
-Projectile credits are limited to one line every 2 seconds per player so rapid fire
-does not flood chat. `/graft list` shows any credits next to their images.
-
-Credits live in `plugins/Grafting/fanart/credits.yml`, keyed by file name:
+Credits are optional and live in `plugins/Grafting/fanart/credits.yml`, keyed by file name:
 
 ```yaml
 "Fors art.jpg":
   artist: Jane Doe
   social: "@janedoe on X"
-  link: https://x.com/janedoe
+  link: https://x.com/janedoe   # optional, makes the social clickable
 ```
 
-Credits are optional. Images without an entry load normally and do not post a credit in chat.
-
-Images are scaled automatically: 128 x 128 for map art, and up to 32 pixels
-on the longest side for text art. Both can be tuned in `config.yml`.
+Grafting a credited image posts `Art by Jane Doe (@janedoe on X)` in chat. Projectile
+credits are limited to one line every 2 seconds per player so rapid fire does not
+flood chat. Images without an entry load normally and post nothing.
 
 ## Configuration
 
-`plugins/Grafting/config.yml`:
+`plugins/Grafting/config.yml` (restart to apply):
 
-```yaml
-effects:
-  charge-ticks: 16      # potion swirl time before the art appears (20 = 1 s, 0 = instant)
-text-art:
-  resolution: 32        # longest side of text art, 8 to 64
-  mob-size: 1.5         # art height in blocks
-  projectile-size: 1.0
-  y-stretch: 1.0        # adjust if text pixels look too tall or flat
-```
+| Key | Default | Description |
+|-----|---------|-------------|
+| `effects.charge-ticks` | `16` | Potion swirl time before the art appears (20 = 1 second, 0 = instant) |
+| `text-art.resolution` | `48` | Longest side of mob and projectile art in pixels, 8 to 64 |
+| `text-art.mob-size` | `2.0` | Height of mob art in blocks at 1x |
+| `text-art.projectile-size` | `1.0` | Height of projectile art in blocks |
+| `text-art.y-stretch` | `1.0` | Vertical stretch if pixels look too tall or flat |
 
 ## Requirements
 
 | Component | Version |
 |-----------|---------|
-| Server    | [Paper](https://papermc.io/downloads/paper) 26.2 |
+| Server    | [Paper](https://papermc.io/downloads/paper) 26.2 or newer |
 | Java      | 25 or newer |
 
 No other plugins, databases, packet libraries, or resource packs are required.
@@ -133,42 +120,44 @@ cd trial-dev-grafting-Djon
 ./gradlew build        # Windows: gradlew.bat build
 ```
 
-The plugin jar is written to `build/libs/`. `build` also runs the tests (60: image
-pipeline, credits, and simulated-server tests with [MockBukkit](https://github.com/MockBukkit/MockBukkit)).
-Gradle downloads a Java 25 runtime for the tests automatically if you do not have one.
+The jar is written to `build/libs/`. `build` also runs the test suite: unit tests for
+the image pipeline and credits, plus [MockBukkit](https://github.com/MockBukkit/MockBukkit)
+tests that load the real plugin and drive clicks, commands, sizes, and cleanup.
+Gradle downloads a Java 25 runtime for the tests automatically if needed.
 
 ## How it works
 
 | Target | Display | Why |
 |--------|---------|-----|
-| Block | Maps in invisible, fixed item frames, one per block for big art | Maps give the sharpest image and item frames attach cleanly to block faces |
+| Block | Invisible, fixed item frames holding maps, one per block | Maps are the sharpest image Minecraft can show without a resource pack |
 | Mob | Billboarded text display riding the mob | Follows the mob smoothly and faces every viewer |
-| Projectile | Text display riding the projectile | Text displays follow moving entities smoothly and need no resource pack |
+| Projectile | Text display riding the projectile | Follows fast-moving entities without a resource pack |
 
-Text art is built from colored full-block characters. Neighboring pixels of the
-same color are merged into a single text run to keep packets small.
+Text art is built from colored full-block characters. Images are shrunk with area
+averaging so detail blends instead of turning into noise, neighboring pixels of the
+same color are merged into one text run to keep packets small, and an opaque
+background in the art's average color hides the gaps the font leaves between pixels.
 
 ## Project structure
 
 ```
 src/main/java/dev/djon/grafting
-├── GraftingPlugin.java     Entry point, wiring
-├── GraftManager.java       Applies and removes grafts
-├── GraftListener.java      Shift + right-click input and cleanup events
+├── GraftingPlugin.java     Entry point and wiring
+├── GraftManager.java       Applies, resizes, and removes grafts
+├── GraftListener.java      Player input, potion charge-up, and cleanup events
 ├── GraftCommand.java       /graft command
 ├── GraftEffects.java       Particles and sounds
 ├── GraftSettings.java      config.yml values
-├── Messages.java           Player facing text
+├── Messages.java           Player-facing text
 └── art
     ├── FanartLibrary.java  Loads the fanart folder, random picks
-    ├── CreditsFile.java    Reads credits.yml
-    ├── Credit.java         Artist name, social, link
     ├── Fanart.java         One preprocessed image
-    ├── ArtProcessor.java   Image scaling and color reduction
+    ├── ArtProcessor.java   Image scaling, tiling, and color reduction
+    ├── FanartMaps.java     Reusable map tiles per fanart and size
     ├── PixelArtText.java   Pixel grid to colored text
-    └── FanartMaps.java     One reusable map per fanart
-src/test/java               Unit tests for the image pipeline, plus MockBukkit tests
-                            that load the plugin and drive clicks, commands, and cleanup
+    ├── CreditsFile.java    Reads credits.yml
+    └── Credit.java         Artist name, social, link
+src/test/java               Unit and MockBukkit tests
 ```
 
 ## AI usage disclosure

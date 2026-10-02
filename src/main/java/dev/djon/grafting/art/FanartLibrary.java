@@ -1,6 +1,8 @@
 package dev.djon.grafting.art;
 
 import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +23,9 @@ public final class FanartLibrary {
 
     /** Map art is always 128 x 128, the size of one Minecraft map. */
     public static final int MAP_SIZE = 128;
+
+    /** Most map tiles along one side of the biggest graft. */
+    public static final int MAX_TILES = 10;
 
     private static final List<String> EXTENSIONS = List.of(".png", ".jpg", ".jpeg", ".gif", ".bmp");
 
@@ -79,9 +84,6 @@ public final class FanartLibrary {
                 capSize(image, MAP_SIZE * MAX_TILES), ArtProcessor.averageColor(grid));
     }
 
-    /** Most map tiles along one side of the biggest graft. */
-    public static final int MAX_TILES = 10;
-
     /** Keeps at most enough pixels for the widest (10 x 10 map) graft. */
     private static BufferedImage capSize(BufferedImage image, int max) {
         if (image.getWidth() <= max && image.getHeight() <= max) {
@@ -91,9 +93,8 @@ public final class FanartLibrary {
         int width = Math.max(1, (int) Math.round(image.getWidth() * scale));
         int height = Math.max(1, (int) Math.round(image.getHeight() * scale));
         BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        java.awt.Graphics2D g = out.createGraphics();
-        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        Graphics2D g = out.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         g.drawImage(image, 0, 0, width, height, null);
         g.dispose();
         return out;

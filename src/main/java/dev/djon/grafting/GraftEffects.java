@@ -5,6 +5,8 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 /** Particle and sound cues for grafting. */
@@ -22,7 +24,7 @@ public final class GraftEffects {
      * Purple potion swirls rising from one block face, covering exactly where one tile of
      * art appears. Called once per tile so big grafts glow across their whole area.
      */
-    public static void potionSwirlOnFace(Location blockCenter, org.bukkit.block.BlockFace face) {
+    public static void potionSwirlOnFace(Location blockCenter, BlockFace face) {
         World world = blockCenter.getWorld();
         if (world == null) {
             return;
@@ -36,7 +38,7 @@ public final class GraftEffects {
     }
 
     /** Purple potion swirls around a mob's body, where its art is about to ride. */
-    public static void potionSwirlAround(org.bukkit.entity.Entity target) {
+    public static void potionSwirlAround(Entity target) {
         Location center = target.getLocation().add(0, target.getHeight() / 2, 0);
         World world = center.getWorld();
         if (world == null) {

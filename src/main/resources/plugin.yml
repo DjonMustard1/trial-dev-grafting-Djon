@@ -7,7 +7,7 @@ author: DjonMustard1
 
 commands:
   graft:
-    description: Grafting help, fanart list, reload, clear, and projectile toggle.
+    description: Grafting help, fanart list, graft size, projectile toggle, reload, and clear.
     usage: /graft [list|reload|clear|projectiles|size <1-10>]
 
 permissions:

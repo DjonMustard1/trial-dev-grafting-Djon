@@ -2,6 +2,7 @@ package dev.djon.grafting.art;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
@@ -78,7 +79,7 @@ public final class ArtProcessor {
         g.fillRect(0, 0, width, height);
         // Area averaging blends every source pixel into the result. Bilinear scaling only
         // samples a few pixels per output pixel, which turns big images into noise.
-        g.drawImage(source.getScaledInstance(width, height, java.awt.Image.SCALE_AREA_AVERAGING), 0, 0, null);
+        g.drawImage(source.getScaledInstance(width, height, Image.SCALE_AREA_AVERAGING), 0, 0, null);
         g.dispose();
 
         int[][] grid = new int[height][width];

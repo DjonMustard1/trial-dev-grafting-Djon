@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -15,10 +17,10 @@ class ArtProcessorTest {
 
     @Test
     void tileGridFollowsAspectRatio() {
-        assertEquals(java.util.List.of(4, 4), asList(ArtProcessor.grid(500, 500, 4)));
-        assertEquals(java.util.List.of(4, 1), asList(ArtProcessor.grid(400, 100, 4)));
-        assertEquals(java.util.List.of(2, 3), asList(ArtProcessor.grid(600, 900, 3)));
-        assertEquals(java.util.List.of(1, 2), asList(ArtProcessor.grid(10, 1000, 2)), "never zero columns");
+        assertEquals(List.of(4, 4), asList(ArtProcessor.grid(500, 500, 4)));
+        assertEquals(List.of(4, 1), asList(ArtProcessor.grid(400, 100, 4)));
+        assertEquals(List.of(2, 3), asList(ArtProcessor.grid(600, 900, 3)));
+        assertEquals(List.of(1, 2), asList(ArtProcessor.grid(10, 1000, 2)), "never zero columns");
     }
 
     @Test
@@ -26,10 +28,6 @@ class ArtProcessorTest {
         BufferedImage out = ArtProcessor.fitToBox(new BufferedImage(40, 10, BufferedImage.TYPE_INT_RGB), 512, 128);
         assertEquals(512, out.getWidth());
         assertEquals(128, out.getHeight());
-    }
-
-    private static java.util.List<Integer> asList(int[] values) {
-        return java.util.Arrays.stream(values).boxed().toList();
     }
 
     @Test
@@ -118,5 +116,9 @@ class ArtProcessorTest {
         g.fillRect(0, 0, w, h);
         g.dispose();
         return img;
+    }
+
+    private static List<Integer> asList(int[] values) {
+        return Arrays.stream(values).boxed().toList();
     }
 }

@@ -28,7 +28,7 @@ public class GraftingPlugin extends JavaPlugin {
         FanartLibrary library = new FanartLibrary(new File(getDataFolder(), "fanart"), getLogger(),
                 settings.textArtResolution());
         grafts = new GraftManager(library, new NamespacedKey(this, "graft"), settings);
-        listener = new GraftListener(grafts, this);
+        listener = new GraftListener(grafts, this, settings);
 
         int count = library.load();
         getLogger().info("Loaded " + count + " fanart from " + library.folder().getPath());

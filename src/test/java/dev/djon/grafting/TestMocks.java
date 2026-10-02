@@ -1,9 +1,12 @@
 package dev.djon.grafting;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.mockbukkit.mockbukkit.ServerMock;
@@ -55,7 +58,7 @@ final class TestMocks {
         private final ServerMock server;
 
         TestWorld(ServerMock server, String name) {
-            super(org.bukkit.Material.GRASS_BLOCK, 64);
+            super(Material.GRASS_BLOCK, 64);
             this.server = server;
             setName(name);
         }
@@ -80,7 +83,7 @@ final class TestMocks {
                 }
                 return typed;
             }
-            if (clazz == org.bukkit.entity.ItemFrame.class) {
+            if (clazz == ItemFrame.class) {
                 ItemFrameMock frame = new FloorFrame(server, UUID.randomUUID());
                 frame.setLocation(location.clone());
                 server.registerEntity(frame);
@@ -97,20 +100,20 @@ final class TestMocks {
 
     /** Item frame that, like vanilla, can also face up or down (floors and ceilings). */
     static final class FloorFrame extends ItemFrameMock {
-        private org.bukkit.block.BlockFace facing = org.bukkit.block.BlockFace.SOUTH;
+        private BlockFace facing = BlockFace.SOUTH;
 
         FloorFrame(ServerMock server, UUID uuid) {
             super(server, uuid);
         }
 
         @Override
-        public boolean setFacingDirection(org.bukkit.block.BlockFace face, boolean force) {
+        public boolean setFacingDirection(BlockFace face, boolean force) {
             this.facing = face;
             return true;
         }
 
         @Override
-        public org.bukkit.block.BlockFace getFacing() {
+        public BlockFace getFacing() {
             return facing;
         }
     }
@@ -130,13 +133,13 @@ final class TestMocks {
         }
 
         @Override
-        public org.bukkit.Material getType() {
+        public Material getType() {
             // The super constructor calls this before delegate is assigned.
             return delegate == null ? super.getType() : delegate.getType();
         }
 
         @Override
-        public void setType(org.bukkit.Material type) {
+        public void setType(Material type) {
             if (delegate == null) {
                 super.setType(type);
             } else {

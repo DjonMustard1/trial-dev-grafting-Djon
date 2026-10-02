@@ -11,6 +11,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -39,7 +40,7 @@ class CreditsTest {
 
         FanartLibrary library = new FanartLibrary(dir.toFile(), LOG, 16);
         library.load();
-        Map<String, Credit> byName = new java.util.HashMap<>();
+        Map<String, Credit> byName = new HashMap<>();
         library.entries().forEach(a -> byName.put(a.name(), a.credit()));
 
         assertEquals(new Credit("Jane Doe", "@janedoe on X", "https://x.com/janedoe"), byName.get("Fors art"));
