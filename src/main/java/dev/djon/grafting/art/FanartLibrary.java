@@ -75,7 +75,25 @@ public final class FanartLibrary {
     public static Fanart process(String name, BufferedImage image, int textArtSize, Credit credit) {
         BufferedImage mapImage = ArtProcessor.fitToSquare(image, MAP_SIZE);
         int[][] grid = ArtProcessor.toPixelGrid(image, textArtSize);
-        return new Fanart(name, mapImage, PixelArtText.fromGrid(grid), grid[0].length, grid.length, credit);
+        return new Fanart(name, mapImage, PixelArtText.fromGrid(grid), grid[0].length, grid.length, credit,
+                capSize(image, MAP_SIZE * 4));
+    }
+
+    /** Keeps at most enough pixels for the widest (4 x 4 map) graft. */
+    private static BufferedImage capSize(BufferedImage image, int max) {
+        if (image.getWidth() <= max && image.getHeight() <= max) {
+            return image;
+        }
+        double scale = Math.min((double) max / image.getWidth(), (double) max / image.getHeight());
+        int width = Math.max(1, (int) Math.round(image.getWidth() * scale));
+        int height = Math.max(1, (int) Math.round(image.getHeight() * scale));
+        BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = out.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.drawImage(image, 0, 0, width, height, null);
+        g.dispose();
+        return out;
     }
 
     /** Picks a random fanart, avoiding the same one twice in a row when possible. */

@@ -21,20 +21,42 @@ public final class ArtProcessor {
      * centered on a transparent background.
      */
     public static BufferedImage fitToSquare(BufferedImage source, int size) {
-        if (size <= 0) {
+        return fitToBox(source, size, size);
+    }
+
+    /**
+     * Scales an image to fit inside a boxWidth x boxHeight box, keeping its aspect ratio,
+     * centered on a transparent background.
+     */
+    public static BufferedImage fitToBox(BufferedImage source, int boxWidth, int boxHeight) {
+        if (boxWidth <= 0 || boxHeight <= 0) {
             throw new IllegalArgumentException("size must be positive");
         }
-        double scale = Math.min((double) size / source.getWidth(), (double) size / source.getHeight());
+        double scale = Math.min((double) boxWidth / source.getWidth(), (double) boxHeight / source.getHeight());
         int width = Math.max(1, (int) Math.round(source.getWidth() * scale));
         int height = Math.max(1, (int) Math.round(source.getHeight() * scale));
 
-        BufferedImage out = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage out = new BufferedImage(boxWidth, boxHeight, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = out.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.drawImage(source, (size - width) / 2, (size - height) / 2, width, height, null);
+        g.drawImage(source, (boxWidth - width) / 2, (boxHeight - height) / 2, width, height, null);
         g.dispose();
         return out;
+    }
+
+    /**
+     * Tile grid for art at a given size: the longer side of the picture spans {@code size}
+     * blocks and the shorter side as many blocks as its aspect ratio needs (at least 1).
+     * Returns {columns, rows}.
+     */
+    public static int[] grid(int imageWidth, int imageHeight, int size) {
+        if (imageWidth >= imageHeight) {
+            int rows = (int) Math.round((double) size * imageHeight / imageWidth);
+            return new int[]{size, Math.max(1, Math.min(size, rows))};
+        }
+        int columns = (int) Math.round((double) size * imageWidth / imageHeight);
+        return new int[]{Math.max(1, Math.min(size, columns)), size};
     }
 
     /**

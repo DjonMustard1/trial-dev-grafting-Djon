@@ -24,6 +24,10 @@ itself stops existing.
 
 - **Blocks:** the clicked face is overlaid with a sharp 128 x 128 map render of
   the fanart. Break the block and the art goes with it.
+- **Adjustable size:** shift + middle-click to pick 1x1 up to 4x4. Big art is cut
+  into a grid of map tiles, one per block, so it stays just as sharp. The grid follows
+  the picture's shape (a wide banner at 4x becomes 4 x 1), and if the wall is too
+  small the largest size that fits is used.
 - **Mobs and other entities:** billboarded pixel art rides on the target,
   facing the viewer instead of using an unreliable block-attached item frame.
   Kill or remove the target and the art vanishes.
@@ -44,7 +48,7 @@ itself stops existing.
 |--------|--------|
 | Shift + right-click a block | Graft fanart onto that face (again to swap it) |
 | Shift + right-click a mob | Graft fanart onto the mob (again to swap it) |
-| Shift + middle-click a block or entity | Cycle art width from 1x to 4x; an existing graft resizes immediately and the chosen width applies to your next graft |
+| Shift + middle-click a block, art, or mob | Cycle graft size 1x, 2x, 3x, 4x, back to 1x. Existing art you point at resizes right away, and the size applies to your next grafts |
 | Shift + right-click the air | Toggle projectile grafting on or off (hold any item that is not a bow, trident, or throwable) |
 
 > The Minecraft client does not tell the server about right-clicks on air with an
@@ -124,7 +128,7 @@ cd trial-dev-grafting-Djon
 ./gradlew build        # Windows: gradlew.bat build
 ```
 
-The plugin jar is written to `build/libs/`. `build` also runs the tests (48: image
+The plugin jar is written to `build/libs/`. `build` also runs the tests (60: image
 pipeline, credits, and simulated-server tests with [MockBukkit](https://github.com/MockBukkit/MockBukkit)).
 Gradle downloads a Java 25 runtime for the tests automatically if you do not have one.
 
@@ -132,8 +136,8 @@ Gradle downloads a Java 25 runtime for the tests automatically if you do not hav
 
 | Target | Display | Why |
 |--------|---------|-----|
-| Block | Map in an invisible, fixed item frame | Maps give the sharpest image and item frames attach cleanly to block faces |
-| Mob | Item frame riding the mob, text display fallback | Keeps the art attached as the mob moves |
+| Block | Maps in invisible, fixed item frames, one per block for big art | Maps give the sharpest image and item frames attach cleanly to block faces |
+| Mob | Billboarded text display riding the mob | Follows the mob smoothly and faces every viewer |
 | Projectile | Text display riding the projectile | Text displays follow moving entities smoothly and need no resource pack |
 
 Text art is built from colored full-block characters. Neighboring pixels of the

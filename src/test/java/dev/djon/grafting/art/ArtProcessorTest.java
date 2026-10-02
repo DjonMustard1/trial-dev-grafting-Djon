@@ -13,6 +13,25 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ArtProcessorTest {
 
     @Test
+    void tileGridFollowsAspectRatio() {
+        assertEquals(java.util.List.of(4, 4), asList(ArtProcessor.grid(500, 500, 4)));
+        assertEquals(java.util.List.of(4, 1), asList(ArtProcessor.grid(400, 100, 4)));
+        assertEquals(java.util.List.of(2, 3), asList(ArtProcessor.grid(600, 900, 3)));
+        assertEquals(java.util.List.of(1, 2), asList(ArtProcessor.grid(10, 1000, 2)), "never zero columns");
+    }
+
+    @Test
+    void fitToBoxKeepsRequestedSize() {
+        BufferedImage out = ArtProcessor.fitToBox(new BufferedImage(40, 10, BufferedImage.TYPE_INT_RGB), 512, 128);
+        assertEquals(512, out.getWidth());
+        assertEquals(128, out.getHeight());
+    }
+
+    private static java.util.List<Integer> asList(int[] values) {
+        return java.util.Arrays.stream(values).boxed().toList();
+    }
+
+    @Test
     void fitToSquareKeepsAspectRatioAndCenters() {
         BufferedImage wide = solid(200, 100, Color.RED);
         BufferedImage out = ArtProcessor.fitToSquare(wide, 128);

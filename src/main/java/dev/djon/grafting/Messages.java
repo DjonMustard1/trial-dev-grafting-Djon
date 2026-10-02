@@ -28,6 +28,18 @@ public final class Messages {
                 + " and run /graft reload.", NamedTextColor.RED);
     }
 
+    /** Shown when the player changes graft size with shift + middle-click. */
+    public static Component size(int width) {
+        return Component.text("Graft size: " + width + "x" + width
+                + (width == 1 ? "" : " blocks") + "  (shift + middle-click to change)", NamedTextColor.LIGHT_PURPLE);
+    }
+
+    /** Shown when wide art did not fit and a smaller size was used instead. */
+    public static Component shrunk(int wanted, int used) {
+        return Component.text("Not enough wall for " + wanted + "x" + wanted + ", grafted at "
+                + used + "x" + used + ".", NamedTextColor.YELLOW);
+    }
+
     /**
      * Chat credit for the artist of a grafted piece, for example:
      * "Art by Jane Doe (@janedoe on X)". The social is clickable when a link is set.

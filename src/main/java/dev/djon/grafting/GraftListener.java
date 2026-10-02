@@ -129,7 +129,7 @@ public final class GraftListener implements Listener {
         int width = cycleWidth(player);
         RayTraceResult hit = player.rayTraceBlocks(6);
         if (hit != null && event.getBlock().equals(hit.getHitBlock()) && hit.getHitBlockFace() != null) {
-            grafts.resizeBlock(event.getBlock(), hit.getHitBlockFace(), width);
+            resizeBlock(player, event.getBlock(), hit.getHitBlockFace(), width);
         }
     }
 
@@ -143,20 +143,30 @@ public final class GraftListener implements Listener {
         Block anchor = grafts.blockOfFrame(target);
         if (anchor != null) {
             BlockFace face = grafts.faceOfFrame(target);
-            if (face != null) grafts.resizeBlock(anchor, face, width);
+            if (face != null) resizeBlock(player, anchor, face, width);
         } else {
             grafts.resizeMob(target.getVehicle() != null && grafts.isGraftEntity(target)
                     ? target.getVehicle() : target, width);
         }
     }
 
+    /** Resizes existing block art, telling the player if the wall was too small. */
+    private void resizeBlock(Player player, Block block, BlockFace face, int width) {
+        int placed = grafts.resizeBlock(block, face, width);
+        if (placed > 0 && placed < width) {
+            player.sendActionBar(Messages.shrunk(width, placed));
+        }
+    }
+
+    /** Cycles the player's graft size 1, 2, 3, 4, then back to 1. */
     private int cycleWidth(Player player) {
-        int width = selectedWidth.compute(player.getUniqueId(), (id, old) -> old == null || old >= 4 ? 2 : old + 1);
-        player.sendActionBar(Component.text("Graft width: " + width + "x (middle-click again to change)", NamedTextColor.LIGHT_PURPLE));
+        int width = selectedWidth.compute(player.getUniqueId(),
+                (id, old) -> old == null ? 2 : old >= GraftManager.MAX_WIDTH ? 1 : old + 1);
+        player.sendActionBar(Messages.size(width));
         return width;
     }
 
-    private int width(Player player) {
+    int width(Player player) {
         return selectedWidth.getOrDefault(player.getUniqueId(), 1);
     }
 
@@ -258,9 +268,15 @@ public final class GraftListener implements Listener {
     }
 
     private void graftBlock(Player player, Block block, BlockFace face) {
-        GraftManager.BlockResult result = grafts.graftBlock(block, face, width(player));
+        int width = width(player);
+        GraftManager.BlockResult result = grafts.graftBlock(block, face, width);
         switch (result.status()) {
-            case GRAFTED -> credit(player, result.art());
+            case GRAFTED -> {
+                credit(player, result.art());
+                if (result.width() < width) {
+                    player.sendActionBar(Messages.shrunk(width, result.width()));
+                }
+            }
             case NO_ART -> player.sendMessage(Messages.noArt(grafts.library()));
             case NO_SPACE -> player.sendActionBar(Messages.NO_SPACE);
         }

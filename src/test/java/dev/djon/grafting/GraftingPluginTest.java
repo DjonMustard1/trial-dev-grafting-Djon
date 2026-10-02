@@ -224,44 +224,129 @@ class GraftingPluginTest {
         assertEquals(1, zombie.getPassengers().size());
         TextDisplay resized = (TextDisplay) zombie.getPassengers().get(0);
         assertEquals(originalWidth * 2, resized.getTransformation().getScale().x, 0.001f);
-        assertEquals(originalHeight, resized.getTransformation().getScale().y, 0.001f);
+        assertEquals(originalHeight * 2, resized.getTransformation().getScale().y, 0.001f,
+                "art grows evenly instead of being stretched");
     }
 
     @Test
     void chosenWidthMakesNextBlockGraftWider() throws IOException {
         addFanart("a");
+        buildWall();
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
         server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, zombie,
                 new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1));
         Block block = world.getBlockAt(0, 100, 2);
-        block.setType(Material.STONE);
         rightClickBlock(block, BlockFace.NORTH);
-        assertEquals(1, count(ItemDisplay.class));
+        assertEquals(4, count(ItemFrame.class), "2x2 art should hang as four map tiles");
+        assertEquals(0, count(ItemDisplay.class));
+        assertEquals(4, world.getEntitiesByClass(ItemFrame.class).stream()
+                .map(frame -> ((org.bukkit.inventory.meta.MapMeta) frame.getItem().getItemMeta()).getMapView().getId())
+                .distinct().count(), "each tile shows its own part of the picture");
     }
 
     @Test
-    void middleClickingExistingBlockArtWidensItAndBreakingBlockRemovesIt() throws IOException {
+    void middleClickingExistingBlockArtWidensItAndBreakingAnyTileRemovesIt() throws IOException {
         addFanart("a");
+        buildWall();
         Block block = world.getBlockAt(0, 100, 2);
-        block.setType(Material.STONE);
         rightClickBlock(block, BlockFace.NORTH);
         ItemFrame original = world.getEntitiesByClass(ItemFrame.class).iterator().next();
 
         server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, original,
                 original.getItem(), false, 0, -1));
 
-        assertEquals(0, count(ItemFrame.class));
-        assertEquals(1, count(ItemDisplay.class));
-        ItemDisplay wide = world.getEntitiesByClass(ItemDisplay.class).iterator().next();
-        Block anchor = plugin.grafts().blockOfFrame(wide);
-        assertNotNull(anchor);
-        assertEquals(block.getX(), anchor.getX());
-        assertEquals(block.getY(), anchor.getY());
-        assertEquals(block.getZ(), anchor.getZ());
-        assertEquals(block.getWorld().getUID(), anchor.getWorld().getUID());
-        plugin.grafts().removeBlockGrafts(block);
-        assertEquals(null, plugin.grafts().blockOfFrame(wide), "block graft entry should be forgotten");
-        assertEquals(0, count(ItemDisplay.class), "wide display must be removed on block break");
+        assertEquals(4, count(ItemFrame.class));
+        for (ItemFrame tile : world.getEntitiesByClass(ItemFrame.class)) {
+            Block anchor = plugin.grafts().blockOfFrame(tile);
+            assertNotNull(anchor);
+            assertEquals(block.getX(), anchor.getX());
+            assertEquals(block.getY(), anchor.getY());
+            assertEquals(block.getZ(), anchor.getZ());
+        }
+        // Break a block under another tile of the picture, not the clicked one.
+        Block other = world.getBlockAt(-1, 101, 2);
+        assertTrue(plugin.grafts().hasBlockGraft(other, BlockFace.NORTH));
+        server.getPluginManager().callEvent(new BlockBreakEvent(other, player));
+        assertEquals(0, count(ItemFrame.class), "the whole picture goes when any tile loses its block");
+    }
+
+    @Test
+    void sizeCyclesBackToOneAfterFour() throws IOException {
+        addFanart("a");
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        int[] seen = new int[5];
+        for (int i = 0; i < 5; i++) {
+            server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, zombie,
+                    new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1));
+            seen[i] = plugin.listener().width(player);
+        }
+        assertEquals(List.of(2, 3, 4, 1, 2), java.util.Arrays.stream(seen).boxed().toList());
+    }
+
+    @Test
+    void wideArtShrinksToFitASmallWall() throws IOException {
+        addFanart("a");
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE); // a single block, no room for 2x2
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, zombie,
+                new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1));
+
+        rightClickBlock(block, BlockFace.NORTH);
+
+        assertEquals(1, count(ItemFrame.class));
+    }
+
+    @Test
+    void wideArtUsesOnlyTilesWithPicture() throws IOException {
+        // A very wide banner leaves the top and bottom rows of a 4x4 grid empty.
+        File folder = new File(plugin.getDataFolder(), "fanart");
+        folder.mkdirs();
+        ImageIO.write(new BufferedImage(400, 100, BufferedImage.TYPE_INT_RGB), "png", new File(folder, "banner.png"));
+        plugin.reloadFanart();
+        buildWall();
+
+        GraftManager.BlockResult result = plugin.grafts().graftBlock(world.getBlockAt(0, 100, 2), BlockFace.NORTH, 4);
+
+        assertEquals(4, result.width());
+        assertEquals(4, count(ItemFrame.class), "a 4:1 banner at 4x needs one row of four tiles");
+    }
+
+    @Test
+    void floorArtCanBeWide() throws IOException {
+        addFanart("a");
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                world.getBlockAt(x, 90, z).setType(Material.STONE);
+            }
+        }
+        Block floor = world.getBlockAt(0, 90, 0);
+        assertTrue(!floor.isPassable() && floor.getRelative(BlockFace.UP).isPassable(), "floor setup");
+        assertEquals(1, plugin.grafts().graftBlock(floor, BlockFace.UP, 1).width(), "1x1 on floor");
+        GraftManager.BlockResult result = plugin.grafts().graftBlock(world.getBlockAt(0, 90, 0), BlockFace.UP, 3);
+        assertEquals(3, result.width());
+        assertTrue(count(ItemFrame.class) >= 6);
+    }
+
+    @Test
+    void biggerMobSizeScalesArtEvenly() throws IOException {
+        addFanart("a");
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        plugin.grafts().graftMob(zombie, 1);
+        org.joml.Vector3f small = ((TextDisplay) zombie.getPassengers().get(0)).getTransformation().getScale();
+        plugin.grafts().resizeMob(zombie, 3);
+        org.joml.Vector3f big = ((TextDisplay) zombie.getPassengers().get(0)).getTransformation().getScale();
+        assertEquals(small.x * 3, big.x, 0.001f);
+        assertEquals(small.y * 3, big.y, 0.001f);
+    }
+
+    /** A stone wall from x -3..3, y 97..103 at z = 2, open to the north. */
+    private void buildWall() {
+        for (int x = -3; x <= 3; x++) {
+            for (int y = 97; y <= 103; y++) {
+                world.getBlockAt(x, y, 2).setType(Material.STONE);
+            }
+        }
     }
 
     @Test

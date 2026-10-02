@@ -8,6 +8,7 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.block.BlockMock;
+import org.mockbukkit.mockbukkit.entity.ItemFrameMock;
 import org.mockbukkit.mockbukkit.entity.TextDisplayMock;
 import org.mockbukkit.mockbukkit.map.MapViewMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
@@ -79,7 +80,38 @@ final class TestMocks {
                 }
                 return typed;
             }
+            if (clazz == org.bukkit.entity.ItemFrame.class) {
+                ItemFrameMock frame = new FloorFrame(server, UUID.randomUUID());
+                frame.setLocation(location.clone());
+                server.registerEntity(frame);
+                @SuppressWarnings("unchecked")
+                T typed = (T) frame;
+                if (function != null) {
+                    function.accept(typed);
+                }
+                return typed;
+            }
             return super.spawn(location, clazz, function, reason);
+        }
+    }
+
+    /** Item frame that, like vanilla, can also face up or down (floors and ceilings). */
+    static final class FloorFrame extends ItemFrameMock {
+        private org.bukkit.block.BlockFace facing = org.bukkit.block.BlockFace.SOUTH;
+
+        FloorFrame(ServerMock server, UUID uuid) {
+            super(server, uuid);
+        }
+
+        @Override
+        public boolean setFacingDirection(org.bukkit.block.BlockFace face, boolean force) {
+            this.facing = face;
+            return true;
+        }
+
+        @Override
+        public org.bukkit.block.BlockFace getFacing() {
+            return facing;
         }
     }
 
