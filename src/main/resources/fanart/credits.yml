@@ -1,0 +1,14 @@
+# Artist credits, shown in chat every time a piece of fanart is grafted.
+#
+# One entry per image, keyed by the exact file name in this folder (case does not matter).
+#   artist: the name to show (required)
+#   social: their handle, e.g. "@name on X" or "@name on TikTok" (optional)
+#   link:   a profile URL; makes the social clickable in chat (optional, http/https only)
+#
+# Images without an entry are credited as "Unknown artist" and a warning is logged.
+#
+# Example:
+# "Fors art.jpg":
+#   artist: Jane Doe
+#   social: "@janedoe on X"
+#   link: https://x.com/janedoe

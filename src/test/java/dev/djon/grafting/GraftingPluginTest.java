@@ -340,6 +340,64 @@ class GraftingPluginTest {
         assertEquals(0, world.getEntitiesByClass(ItemFrame.class).stream().filter(Entity::isValid).count());
     }
 
+    // ------------------------------------------------------------- credits
+
+    private void addCreditedFanart() throws IOException {
+        File folder = new File(plugin.getDataFolder(), "fanart");
+        java.nio.file.Files.writeString(new File(folder, "credits.yml").toPath(),
+                "\"a.png\":\n  artist: Jane Doe\n  social: \"@janedoe on X\"\n");
+        addFanart("a");
+    }
+
+    private String nextPlainMessage() {
+        net.kyori.adventure.text.Component message = player.nextComponentMessage();
+        return message == null ? null
+                : net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(message);
+    }
+
+    @Test
+    void firstRunCreatesCreditsTemplate() {
+        assertTrue(new File(plugin.getDataFolder(), "fanart/credits.yml").isFile());
+    }
+
+    @Test
+    void graftingABlockCreditsTheArtistInChat() throws IOException {
+        addCreditedFanart();
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE);
+        rightClickBlock(block, BlockFace.NORTH);
+        assertEquals("Art by Jane Doe (@janedoe on X)", nextPlainMessage());
+    }
+
+    @Test
+    void graftingAMobCreditsTheArtistInChat() throws IOException {
+        addCreditedFanart();
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        rightClickEntity(zombie);
+        assertEquals("Art by Jane Doe (@janedoe on X)", nextPlainMessage());
+    }
+
+    @Test
+    void projectileCreditsAreRateLimited() throws IOException {
+        addCreditedFanart();
+        rightClickAir();
+        for (int i = 0; i < 5; i++) {
+            Arrow arrow = world.spawn(player.getEyeLocation(), Arrow.class);
+            arrow.setShooter(player);
+            server.getPluginManager().callEvent(new ProjectileLaunchEvent(arrow));
+        }
+        assertEquals("Art by Jane Doe (@janedoe on X)", nextPlainMessage());
+        assertEquals(null, nextPlainMessage(), "five quick shots should give one credit line");
+    }
+
+    @Test
+    void listCommandShowsCredits() throws IOException {
+        addCreditedFanart();
+        player.performCommand("graft list");
+        player.nextMessage();
+        assertEquals(" - a: Art by Jane Doe (@janedoe on X)", nextPlainMessage());
+    }
+
     // ------------------------------------------------------------- helpers
 
     private void rightClickBlock(Block block, BlockFace face) {

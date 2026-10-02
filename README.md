@@ -67,6 +67,24 @@ itself stops existing.
    supported by Java's image reader, so convert those to PNG first.
 3. Run `/graft reload`.
 
+### Crediting artists
+
+Every graft posts the artist's name and social in chat, for example
+`Art by Jane Doe (@janedoe on X)`. If a link is set, the social is clickable.
+Projectile credits are limited to one line every 2 seconds per player so rapid fire
+does not flood chat. `/graft list` shows every piece with its credit.
+
+Credits live in `plugins/Grafting/fanart/credits.yml`, keyed by file name:
+
+```yaml
+"Fors art.jpg":
+  artist: Jane Doe
+  social: "@janedoe on X"
+  link: https://x.com/janedoe
+```
+
+Images without an entry are shown as "Unknown artist" and a warning is logged.
+
 Images are scaled automatically: 128 x 128 for map art, and up to 32 pixels
 on the longest side for text art. Both can be tuned in `config.yml`.
 
@@ -107,8 +125,8 @@ cd trial-dev-grafting-Djon
 ./gradlew build        # Windows: gradlew.bat build
 ```
 
-The plugin jar is written to `build/libs/`. `build` also runs the tests (34: image
-pipeline unit tests and simulated-server tests with [MockBukkit](https://github.com/MockBukkit/MockBukkit)).
+The plugin jar is written to `build/libs/`. `build` also runs the tests (48: image
+pipeline, credits, and simulated-server tests with [MockBukkit](https://github.com/MockBukkit/MockBukkit)).
 Gradle downloads a Java 25 runtime for the tests automatically if you do not have one.
 
 ## How it works
@@ -135,6 +153,8 @@ src/main/java/dev/djon/grafting
 ├── Messages.java           Player facing text
 └── art
     ├── FanartLibrary.java  Loads the fanart folder, random picks
+    ├── CreditsFile.java    Reads credits.yml
+    ├── Credit.java         Artist name, social, link
     ├── Fanart.java         One preprocessed image
     ├── ArtProcessor.java   Image scaling and color reduction
     ├── PixelArtText.java   Pixel grid to colored text
@@ -152,7 +172,7 @@ for project scaffolding, implementation help, and code review.
 
 ## Credits
 
-- Fanart by friends of the author, used with permission.
+- Fanart is credited to its artists in game (see `credits.yml`).
 - *Lord of the Mysteries* by Cuttlefish That Loves Diving. This is an
   unofficial fan project and is not affiliated with the author or publishers.
 - Built on the [Paper](https://papermc.io/) API.

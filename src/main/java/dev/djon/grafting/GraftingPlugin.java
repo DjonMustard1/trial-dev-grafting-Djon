@@ -20,6 +20,9 @@ public class GraftingPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        if (!new File(getDataFolder(), "fanart/credits.yml").exists()) {
+            saveResource("fanart/credits.yml", false);
+        }
         GraftSettings settings = GraftSettings.from(getConfig());
 
         FanartLibrary library = new FanartLibrary(new File(getDataFolder(), "fanart"), getLogger(),

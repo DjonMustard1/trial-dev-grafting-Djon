@@ -1,5 +1,6 @@
 package dev.djon.grafting;
 
+import dev.djon.grafting.art.Fanart;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -56,6 +57,10 @@ public final class GraftListener implements Listener {
     /** Air clicks this soon after an entity click are treated as the same click. */
     private static final long ECHO_WINDOW_MS = 250;
 
+    /** At most one projectile credit line per player in this window. */
+    static final long PROJECTILE_CREDIT_COOLDOWN_MS = 2000;
+    private final Map<UUID, Long> lastProjectileCredit = new HashMap<>();
+
     public GraftListener(GraftManager grafts) {
         this.grafts = grafts;
     }
@@ -111,7 +116,10 @@ public final class GraftListener implements Listener {
     public void onLaunch(ProjectileLaunchEvent event) {
         Projectile projectile = event.getEntity();
         if (projectile.getShooter() instanceof Player player && projectileMode.contains(player.getUniqueId())) {
-            grafts.graftProjectile(projectile);
+            Fanart art = grafts.graftProjectile(projectile);
+            if (art != null) {
+                creditProjectile(player, art);
+            }
         }
     }
 
@@ -179,6 +187,7 @@ public final class GraftListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         projectileMode.remove(event.getPlayer().getUniqueId());
         lastEntityClick.remove(event.getPlayer().getUniqueId());
+        lastProjectileCredit.remove(event.getPlayer().getUniqueId());
     }
 
     // --------------------------------------------------------------- helpers
@@ -200,18 +209,39 @@ public final class GraftListener implements Listener {
     }
 
     private void graftBlock(Player player, Block block, BlockFace face) {
-        switch (grafts.graftBlock(block, face)) {
-            case GRAFTED -> player.sendActionBar(Messages.GRAFTED);
+        GraftManager.BlockResult result = grafts.graftBlock(block, face);
+        switch (result.status()) {
+            case GRAFTED -> credit(player, result.art());
             case NO_ART -> player.sendMessage(Messages.noArt(grafts.library()));
             case NO_SPACE -> player.sendActionBar(Messages.NO_SPACE);
         }
     }
 
     private void graftMob(Player player, Entity mob) {
-        if (grafts.graftMob(mob)) {
-            player.sendActionBar(Messages.GRAFTED);
+        Fanart art = grafts.graftMob(mob);
+        if (art != null) {
+            credit(player, art);
         } else {
             player.sendMessage(Messages.noArt(grafts.library()));
+        }
+    }
+
+    /** Credits the artist in chat. */
+    private void credit(Player player, Fanart art) {
+        player.sendActionBar(Messages.GRAFTED);
+        player.sendMessage(Messages.credit(art.credit()));
+    }
+
+    /**
+     * Credits the artist of a grafted projectile in chat. Bows and snowballs can fire
+     * several times a second, so each player gets at most one credit line per window.
+     */
+    private void creditProjectile(Player player, Fanart art) {
+        long now = System.currentTimeMillis();
+        Long last = lastProjectileCredit.get(player.getUniqueId());
+        if (last == null || now - last >= PROJECTILE_CREDIT_COOLDOWN_MS) {
+            lastProjectileCredit.put(player.getUniqueId(), now);
+            player.sendMessage(Messages.credit(art.credit()));
         }
     }
 }

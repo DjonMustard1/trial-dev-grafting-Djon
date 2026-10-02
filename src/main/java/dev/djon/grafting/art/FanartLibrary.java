@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 
@@ -41,6 +42,7 @@ public final class FanartLibrary {
             logger.warning("Could not create fanart folder: " + folder);
         }
         File[] files = folder.listFiles(file -> file.isFile() && isSupported(file.getName()));
+        Map<String, Credit> credits = CreditsFile.load(folder, logger);
         List<Fanart> loaded = new ArrayList<>();
         if (files != null) {
             Arrays.sort(files);
@@ -51,7 +53,12 @@ public final class FanartLibrary {
                         logger.warning("Skipping unreadable image: " + file.getName());
                         continue;
                     }
-                    loaded.add(process(stripExtension(file.getName()), image, textArtSize));
+                    Credit credit = credits.get(CreditsFile.normalize(file.getName()));
+                    if (credit == null) {
+                        logger.warning("No credit for " + file.getName() + " in " + CreditsFile.FILE_NAME);
+                        credit = Credit.UNKNOWN;
+                    }
+                    loaded.add(process(stripExtension(file.getName()), image, textArtSize, credit));
                 } catch (IOException e) {
                     logger.warning("Failed to load " + file.getName() + ": " + e.getMessage());
                 }
@@ -63,9 +70,13 @@ public final class FanartLibrary {
     }
 
     public static Fanart process(String name, BufferedImage image, int textArtSize) {
+        return process(name, image, textArtSize, Credit.UNKNOWN);
+    }
+
+    public static Fanart process(String name, BufferedImage image, int textArtSize, Credit credit) {
         BufferedImage mapImage = ArtProcessor.fitToSquare(image, MAP_SIZE);
         int[][] grid = ArtProcessor.toPixelGrid(image, textArtSize);
-        return new Fanart(name, mapImage, PixelArtText.fromGrid(grid), grid[0].length, grid.length);
+        return new Fanart(name, mapImage, PixelArtText.fromGrid(grid), grid[0].length, grid.length, credit);
     }
 
     /** Picks a random fanart, avoiding the same one twice in a row when possible. */

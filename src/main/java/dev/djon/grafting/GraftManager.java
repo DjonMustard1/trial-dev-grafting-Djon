@@ -67,8 +67,13 @@ public final class GraftManager {
 
     // ---------------------------------------------------------------- blocks
 
-    /** Result of trying to graft a block face. */
-    public enum BlockResult { GRAFTED, NO_ART, NO_SPACE }
+    /** Result of trying to graft a block face. {@code art} is set only when grafted. */
+    public record BlockResult(Status status, Fanart art) {
+        public enum Status { GRAFTED, NO_ART, NO_SPACE }
+
+        static final BlockResult NO_ART = new BlockResult(Status.NO_ART, null);
+        static final BlockResult NO_SPACE = new BlockResult(Status.NO_SPACE, null);
+    }
 
     public BlockResult graftBlock(Block block, BlockFace face) {
         Fanart art = library.random();
@@ -94,7 +99,7 @@ public final class GraftManager {
         blockGrafts.computeIfAbsent(BlockKey.of(block), k -> new EnumMap<>(BlockFace.class))
                 .put(face, new BlockGraft(frame.getUniqueId(), art));
         GraftEffects.graftApplied(frame.getLocation());
-        return BlockResult.GRAFTED;
+        return new BlockResult(BlockResult.Status.GRAFTED, art);
     }
 
     /** Removes every graft attached to a block. */
@@ -189,25 +194,26 @@ public final class GraftManager {
 
     // ---------------------------------------------------- mobs and projectiles
 
-    /** Grafts art onto a mob, replacing any art it already has. Returns false if no art is loaded. */
-    public boolean graftMob(Entity mob) {
+    /** Grafts art onto a mob, replacing any art it already has. Returns the art used, or null if none is loaded. */
+    public Fanart graftMob(Entity mob) {
         Fanart art = library.random();
         if (art == null) {
-            return false;
+            return null;
         }
         attachRider(mob, new RiderGraft(art, false));
         GraftEffects.graftApplied(mob.getLocation().add(0, mob.getHeight() / 2, 0));
-        return true;
+        return art;
     }
 
-    public boolean graftProjectile(Entity projectile) {
+    /** Grafts art onto a projectile. Returns the art used, or null if none is loaded. */
+    public Fanart graftProjectile(Entity projectile) {
         Fanart art = library.random();
         if (art == null) {
-            return false;
+            return null;
         }
         attachRider(projectile, new RiderGraft(art, true));
         GraftEffects.projectileGrafted(projectile.getLocation());
-        return true;
+        return art;
     }
 
     /** The target has been destroyed: remove its art and forget it. */
