@@ -327,8 +327,8 @@ class GraftingPluginTest {
     }
 
     @Test
-    void wideArtUsesOnlyTilesWithPicture() throws IOException {
-        // A very wide banner leaves the top and bottom rows of a 4x4 grid empty.
+    void wideArtGridFollowsThePictureShape() throws IOException {
+        // A 4:1 banner at size 4 is one row of four tiles, not a letterboxed 4 x 4 grid.
         File folder = new File(plugin.getDataFolder(), "fanart");
         folder.mkdirs();
         ImageIO.write(new BufferedImage(400, 100, BufferedImage.TYPE_INT_RGB), "png", new File(folder, "banner.png"));
