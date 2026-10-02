@@ -1,0 +1,16 @@
+# Grafting configuration
+
+# How art is shown on mobs:
+#   map  - sharp 128x128 map art in an invisible item frame riding the mob (experimental).
+#          If the server refuses the rider, text art is used instead.
+#   text - pixel art built from colored text. Always works, lower detail.
+mob-display: map
+
+text-art:
+  # Longest side of text art in pixels (8 to 64). Higher looks better but costs more bandwidth.
+  resolution: 32
+  # Height of the art in blocks.
+  mob-size: 1.5
+  projectile-size: 1.0
+  # Vertical stretch. Lower this if text pixels look too tall, raise it if they look flat.
+  y-stretch: 1.0

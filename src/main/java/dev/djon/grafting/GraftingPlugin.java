@@ -1,20 +1,66 @@
 package dev.djon.grafting;
 
+import dev.djon.grafting.art.FanartLibrary;
+import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+
 /**
- * Entry point for the Grafting plugin.
- * The Grafting mechanic itself is added once the design is decided.
+ * Grafting: shift + right-click blocks and mobs to graft random fanart onto them,
+ * or shift + right-click the air to graft fanart onto everything you shoot.
  */
 public final class GraftingPlugin extends JavaPlugin {
 
+    private GraftManager grafts;
+    private GraftListener listener;
+
     @Override
     public void onEnable() {
-        getLogger().info("Grafting enabled.");
+        saveDefaultConfig();
+        GraftSettings settings = GraftSettings.from(getConfig());
+
+        FanartLibrary library = new FanartLibrary(new File(getDataFolder(), "fanart"), getLogger(),
+                settings.textArtResolution());
+        grafts = new GraftManager(library, new NamespacedKey(this, "graft"), settings);
+        listener = new GraftListener(grafts);
+
+        int count = library.load();
+        getLogger().info("Loaded " + count + " fanart from " + library.folder().getPath());
+        if (count == 0) {
+            getLogger().warning("The fanart folder is empty. Add images and run /graft reload.");
+        }
+
+        getServer().getPluginManager().registerEvents(listener, this);
+        PluginCommand command = getCommand("graft");
+        if (command != null) {
+            GraftCommand executor = new GraftCommand(this);
+            command.setExecutor(executor);
+            command.setTabCompleter(executor);
+        }
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("Grafting disabled.");
+        if (grafts != null) {
+            grafts.clearAll(Bukkit.getWorlds());
+        }
+    }
+
+    /** Reloads images from the fanart folder. Existing grafts keep their current art. */
+    public int reloadFanart() {
+        int count = grafts.library().load();
+        grafts.onLibraryReloaded();
+        return count;
+    }
+
+    public GraftManager grafts() {
+        return grafts;
+    }
+
+    public GraftListener listener() {
+        return listener;
     }
 }

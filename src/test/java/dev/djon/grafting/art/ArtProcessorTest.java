@@ -1,0 +1,82 @@
+package dev.djon.grafting.art;
+
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.junit.jupiter.api.Test;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class ArtProcessorTest {
+
+    @Test
+    void fitToSquareKeepsAspectRatioAndCenters() {
+        BufferedImage wide = solid(200, 100, Color.RED);
+        BufferedImage out = ArtProcessor.fitToSquare(wide, 128);
+
+        assertEquals(128, out.getWidth());
+        assertEquals(128, out.getHeight());
+        // Top band is empty padding, middle row is filled.
+        assertEquals(0, out.getRGB(64, 5) >>> 24, "padding should be transparent");
+        assertEquals(255, out.getRGB(64, 64) >>> 24, "image area should be opaque");
+    }
+
+    @Test
+    void pixelGridRespectsMaxSize() {
+        int[][] grid = ArtProcessor.toPixelGrid(solid(400, 100, Color.BLUE), 32);
+        assertEquals(8, grid.length);
+        assertEquals(32, grid[0].length);
+    }
+
+    @Test
+    void smallImagesAreNotUpscaled() {
+        int[][] grid = ArtProcessor.toPixelGrid(solid(10, 6, Color.BLUE), 32);
+        assertEquals(6, grid.length);
+        assertEquals(10, grid[0].length);
+    }
+
+    @Test
+    void transparentPixelsBecomeCardColor() {
+        BufferedImage clear = new BufferedImage(4, 4, BufferedImage.TYPE_INT_ARGB);
+        int[][] grid = ArtProcessor.toPixelGrid(clear, 32);
+        assertEquals(ArtProcessor.quantize(ArtProcessor.CARD_RGB), grid[0][0]);
+    }
+
+    @Test
+    void quantizeSnapsToSixteenLevels() {
+        assertEquals(0x000000, ArtProcessor.quantize(0x050505));
+        assertEquals(0xFFFFFF, ArtProcessor.quantize(0xFAFAFA));
+        assertEquals(0x110000, ArtProcessor.quantize(0x120000));
+    }
+
+    @Test
+    void invalidSizesAreRejected() {
+        BufferedImage img = solid(4, 4, Color.RED);
+        assertThrows(IllegalArgumentException.class, () -> ArtProcessor.fitToSquare(img, 0));
+        assertThrows(IllegalArgumentException.class, () -> ArtProcessor.toPixelGrid(img, -1));
+    }
+
+    @Test
+    void textArtHasOnePixelCharacterPerPixelAndMergesRuns() {
+        int[][] grid = {
+                {0xFF0000, 0xFF0000, 0x0000FF},
+                {0x00FF00, 0x00FF00, 0x00FF00},
+        };
+        String plain = PlainTextComponentSerializer.plainText().serialize(PixelArtText.fromGrid(grid));
+        String px = String.valueOf(PixelArtText.PIXEL);
+        assertEquals(px.repeat(3) + "\n" + px.repeat(3), plain);
+        assertEquals(3, PixelArtText.countRuns(grid));
+    }
+
+    private static BufferedImage solid(int w, int h, Color color) {
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(color);
+        g.fillRect(0, 0, w, h);
+        g.dispose();
+        return img;
+    }
+}

@@ -2,5 +2,18 @@ name: Grafting
 version: '${version}'
 main: dev.djon.grafting.GraftingPlugin
 api-version: '26.2'
-description: Reassembly (Grafting) from the Attendant of Mysteries, Fool Pathway.
+description: Reassembly (Grafting) from the Attendant of Mysteries. Grafts LotM fanart onto anything.
 author: DjonMustard1
+
+commands:
+  graft:
+    description: Grafting help, fanart list, reload, clear, and projectile toggle.
+    usage: /graft [list|reload|clear|projectiles]
+
+permissions:
+  grafting.use:
+    description: Graft fanart onto blocks, mobs, and projectiles.
+    default: true
+  grafting.admin:
+    description: Reload the fanart library and clear all grafts.
+    default: op
