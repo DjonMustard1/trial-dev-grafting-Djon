@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ArtProcessorTest {
 
@@ -76,6 +77,26 @@ class ArtProcessorTest {
         BufferedImage img = solid(4, 4, Color.RED);
         assertThrows(IllegalArgumentException.class, () -> ArtProcessor.fitToSquare(img, 0));
         assertThrows(IllegalArgumentException.class, () -> ArtProcessor.toPixelGrid(img, -1));
+    }
+
+    @Test
+    void averageColorBlendsAllPixels() {
+        int[][] grid = {{0xFF0000, 0x0000FF}, {0xFF0000, 0x0000FF}};
+        assertEquals(0x7F007F, ArtProcessor.averageColor(grid));
+    }
+
+    @Test
+    void downscalingKeepsAverageColorOfDetailedImages() {
+        // A fine checkerboard should shrink to gray, not to random black or white pixels.
+        BufferedImage checker = new BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 400; y++) {
+            for (int x = 0; x < 400; x++) {
+                checker.setRGB(x, y, ((x + y) & 1) == 0 ? 0xFFFFFF : 0x000000);
+            }
+        }
+        int[][] grid = ArtProcessor.toPixelGrid(checker, 40);
+        int gray = (grid[20][20] >> 16) & 0xFF;
+        assertTrue(gray > 0x60 && gray < 0xA0, "expected mid gray but was " + Integer.toHexString(grid[20][20]));
     }
 
     @Test

@@ -9,9 +9,9 @@ effects:
 
 text-art:
   # Longest side of text art in pixels (8 to 64). Higher looks better but costs more bandwidth.
-  resolution: 32
+  resolution: 48
   # Height of the art in blocks.
-  mob-size: 1.5
+  mob-size: 2.0
   projectile-size: 1.0
   # Vertical stretch. Lower this if text pixels look too tall, raise it if they look flat.
   y-stretch: 1.0

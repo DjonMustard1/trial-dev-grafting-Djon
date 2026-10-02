@@ -76,7 +76,7 @@ public final class FanartLibrary {
         BufferedImage mapImage = ArtProcessor.fitToSquare(image, MAP_SIZE);
         int[][] grid = ArtProcessor.toPixelGrid(image, textArtSize);
         return new Fanart(name, mapImage, PixelArtText.fromGrid(grid), grid[0].length, grid.length, credit,
-                capSize(image, MAP_SIZE * 4));
+                capSize(image, MAP_SIZE * 4), ArtProcessor.averageColor(grid));
     }
 
     /** Keeps at most enough pixels for the widest (4 x 4 map) graft. */

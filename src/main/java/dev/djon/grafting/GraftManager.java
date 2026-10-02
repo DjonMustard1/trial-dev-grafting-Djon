@@ -529,7 +529,8 @@ public final class GraftManager {
                 tag(spawned);
                 spawned.text(art.textArt());
                 spawned.setLineWidth(Integer.MAX_VALUE / 2);
-                spawned.setBackgroundColor(Color.fromARGB(0));
+                // Opaque background in the art's average color fills the gaps between pixels.
+                spawned.setBackgroundColor(Color.fromARGB(0xFF000000 | art.textBackground()));
                 spawned.setDefaultBackground(false);
                 spawned.setShadowed(false);
                 spawned.setBillboard(Display.Billboard.CENTER);

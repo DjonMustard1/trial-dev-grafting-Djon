@@ -76,9 +76,9 @@ public final class ArtProcessor {
         Graphics2D g = small.createGraphics();
         g.setColor(new Color(CARD_RGB));
         g.fillRect(0, 0, width, height);
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.drawImage(source, 0, 0, width, height, null);
+        // Area averaging blends every source pixel into the result. Bilinear scaling only
+        // samples a few pixels per output pixel, which turns big images into noise.
+        g.drawImage(source.getScaledInstance(width, height, java.awt.Image.SCALE_AREA_AVERAGING), 0, 0, null);
         g.dispose();
 
         int[][] grid = new int[height][width];
@@ -88,6 +88,27 @@ public final class ArtProcessor {
             }
         }
         return grid;
+    }
+
+    /**
+     * Average color of a pixel grid. Used as the text display background so the thin
+     * gaps the font leaves between pixel characters blend into the picture instead of
+     * showing the world behind it as grid lines.
+     */
+    public static int averageColor(int[][] grid) {
+        long r = 0, g = 0, b = 0, n = 0;
+        for (int[] row : grid) {
+            for (int rgb : row) {
+                r += (rgb >> 16) & 0xFF;
+                g += (rgb >> 8) & 0xFF;
+                b += rgb & 0xFF;
+                n++;
+            }
+        }
+        if (n == 0) {
+            return CARD_RGB;
+        }
+        return (int) (r / n) << 16 | (int) (g / n) << 8 | (int) (b / n);
     }
 
     /** Rounds each channel to 16 levels (0x00, 0x11, ... 0xFF). */

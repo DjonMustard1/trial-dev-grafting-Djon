@@ -15,8 +15,8 @@ public record GraftSettings(int textArtResolution, float mobSize, float projecti
 
     public static GraftSettings from(FileConfiguration config) {
         return new GraftSettings(
-                clamp(config.getInt("text-art.resolution", 32), 8, 64),
-                (float) config.getDouble("text-art.mob-size", 1.5),
+                clamp(config.getInt("text-art.resolution", 48), 8, 64),
+                (float) config.getDouble("text-art.mob-size", 2.0),
                 (float) config.getDouble("text-art.projectile-size", 1.0),
                 (float) config.getDouble("text-art.y-stretch", 1.0));
     }
