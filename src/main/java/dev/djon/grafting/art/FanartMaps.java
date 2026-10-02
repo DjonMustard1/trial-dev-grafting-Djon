@@ -7,19 +7,20 @@ import org.bukkit.map.MapCanvas;
 import org.bukkit.map.MapRenderer;
 import org.bukkit.map.MapView;
 
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
  * Creates one map per fanart and reuses it for every graft, so the server does not
- * create a new map file for each click.
+ * create a new map for each click. Keyed by identity so two files with the same
+ * name (for example art.png and art.jpg) never share a map.
  */
 public final class FanartMaps {
 
-    private final Map<String, MapView> maps = new HashMap<>();
+    private final Map<Fanart, MapView> maps = new IdentityHashMap<>();
 
     public MapView mapFor(Fanart art, World world) {
-        return maps.computeIfAbsent(art.name(), name -> {
+        return maps.computeIfAbsent(art, key -> {
             MapView view = Bukkit.createMap(world);
             view.getRenderers().forEach(view::removeRenderer);
             view.setTrackingPosition(false);

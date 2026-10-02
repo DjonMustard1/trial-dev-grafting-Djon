@@ -1,6 +1,5 @@
 package dev.djon.grafting;
 
-import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -19,6 +18,7 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -28,7 +28,9 @@ import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -48,6 +50,11 @@ public final class GraftListener implements Listener {
 
     private final GraftManager grafts;
     private final Set<UUID> projectileMode = new HashSet<>();
+    /** Time of each player's last shift + right-click on an entity, in milliseconds. */
+    private final Map<UUID, Long> lastEntityClick = new HashMap<>();
+
+    /** Air clicks this soon after an entity click are treated as the same click. */
+    private static final long ECHO_WINDOW_MS = 250;
 
     public GraftListener(GraftManager grafts) {
         this.grafts = grafts;
@@ -66,7 +73,8 @@ public final class GraftListener implements Listener {
             event.setUseItemInHand(Event.Result.DENY);
             graftBlock(player, event.getClickedBlock(), event.getBlockFace());
         } else if (event.getAction() == Action.RIGHT_CLICK_AIR
-                && !LAUNCHERS.contains(player.getInventory().getItemInMainHand().getType())) {
+                && !LAUNCHERS.contains(player.getInventory().getItemInMainHand().getType())
+                && !recentlyClickedEntity(player)) {
             toggleProjectileMode(player);
         }
     }
@@ -78,6 +86,8 @@ public final class GraftListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND || !player.isSneaking() || !player.hasPermission("grafting.use")) {
             return;
         }
+        // The client can also report this click as an air click; ignore that echo.
+        lastEntityClick.put(player.getUniqueId(), System.currentTimeMillis());
 
         // Clicking existing art re-grafts whatever it is attached to.
         if (grafts.isGraftEntity(target)) {
@@ -137,23 +147,30 @@ public final class GraftListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
-        if (grafts.removeRiders(event.getEntity())) {
+        if (grafts.forgetTarget(event.getEntity())) {
             GraftEffects.graftBroken(event.getEntity().getLocation());
         }
     }
 
-    /** Projectile landed, was picked up, or anything else removed the target. */
+    /**
+     * Projectile landed, mob despawned, or anything else removed the target: forget it.
+     * Chunk unloads are the exception, the art comes back when the chunk loads again.
+     */
     @EventHandler
-    public void onRemove(EntityRemoveFromWorldEvent event) {
-        grafts.removeRiders(event.getEntity());
+    public void onRemove(EntityRemoveEvent event) {
+        if (event.getCause() != EntityRemoveEvent.Cause.UNLOAD) {
+            grafts.forgetTarget(event.getEntity());
+        }
     }
 
-    /** Safety net: graft entities are not saved, but remove any that somehow load. */
+    /** Restores art on reloaded targets and clears any stray graft entities. */
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent event) {
         for (Entity entity : event.getEntities()) {
             if (grafts.isGraftEntity(entity)) {
                 entity.remove();
+            } else {
+                grafts.restore(entity);
             }
         }
     }
@@ -161,9 +178,15 @@ public final class GraftListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         projectileMode.remove(event.getPlayer().getUniqueId());
+        lastEntityClick.remove(event.getPlayer().getUniqueId());
     }
 
     // --------------------------------------------------------------- helpers
+
+    private boolean recentlyClickedEntity(Player player) {
+        Long last = lastEntityClick.get(player.getUniqueId());
+        return last != null && System.currentTimeMillis() - last < ECHO_WINDOW_MS;
+    }
 
     public boolean toggleProjectileMode(Player player) {
         UUID id = player.getUniqueId();

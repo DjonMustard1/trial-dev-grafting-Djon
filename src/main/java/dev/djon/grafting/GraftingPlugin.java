@@ -34,6 +34,8 @@ public final class GraftingPlugin extends JavaPlugin {
         }
 
         getServer().getPluginManager().registerEvents(listener, this);
+        // Every second, drop grafts whose block is gone and restore frames after chunk reloads.
+        getServer().getScheduler().runTaskTimer(this, () -> grafts.validateBlockGrafts(Bukkit.getWorlds()), 20L, 20L);
         PluginCommand command = getCommand("graft");
         if (command != null) {
             GraftCommand executor = new GraftCommand(this);

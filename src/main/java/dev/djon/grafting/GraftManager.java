@@ -23,17 +23,21 @@ import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Applies and removes grafts. Every entity the plugin spawns is tagged and marked
- * non-persistent, so grafts never survive a server restart.
+ * Applies and removes grafts.
+ * <p>
+ * Every entity the plugin spawns is tagged and marked non-persistent, so nothing is
+ * written to disk and a restart wipes all grafts. While the server is running, the
+ * art for each target is remembered so it can be restored when a chunk reloads.
  */
 public final class GraftManager {
 
-    /** Rough height in blocks of one line of text in a text display at scale 1. */
+    /** Height in blocks of one line of text in a text display at scale 1. */
     private static final float TEXT_LINE_HEIGHT = 0.25f;
 
     private final FanartLibrary library;
@@ -41,10 +45,10 @@ public final class GraftManager {
     private final NamespacedKey graftKey;
     private final GraftSettings settings;
 
-    /** Block grafts: anchor block to the frame on each grafted face. */
-    private final Map<BlockKey, Map<BlockFace, UUID>> blockGrafts = new HashMap<>();
-    /** Frames placed on blocks, pointing back to the block they are grafted onto. */
-    private final Map<UUID, BlockKey> frameToBlock = new HashMap<>();
+    /** Block grafts: anchor block to the art on each grafted face. */
+    private final Map<BlockKey, Map<BlockFace, BlockGraft>> blockGrafts = new HashMap<>();
+    /** Mob and projectile grafts: target entity to its art. */
+    private final Map<UUID, RiderGraft> riderGrafts = new HashMap<>();
 
     public GraftManager(FanartLibrary library, NamespacedKey graftKey, GraftSettings settings) {
         this.library = library;
@@ -71,71 +75,119 @@ public final class GraftManager {
         if (art == null) {
             return BlockResult.NO_ART;
         }
-        BlockKey key = BlockKey.of(block);
-        ItemStack mapItem = mapItem(art, block.getWorld());
-
-        // Same face grafted again: swap the art in place.
-        ItemFrame existing = existingFrame(key, face, block.getWorld());
-        if (existing != null) {
-            existing.setItem(mapItem, false);
-            GraftEffects.graftApplied(existing.getLocation());
-            return BlockResult.GRAFTED;
-        }
-
-        Block front = block.getRelative(face);
-        if (!front.isPassable()) {
+        if (block.isPassable()) {
             return BlockResult.NO_SPACE;
         }
+        Map<BlockFace, BlockGraft> faces = blockGrafts.get(BlockKey.of(block));
+        BlockGraft existing = faces == null ? null : faces.get(face);
+        ItemFrame frame = existing == null ? null : liveFrame(block.getWorld(), existing.frameId());
 
-        ItemFrame frame;
-        try {
-            frame = block.getWorld().spawn(front.getLocation(), ItemFrame.class, spawned -> {
-                spawned.setFacingDirection(face, true);
-                setupFrame(spawned, mapItem);
-            });
-        } catch (IllegalArgumentException e) {
-            return BlockResult.NO_SPACE;
+        if (frame != null) {
+            // Same face grafted again: swap the art in place.
+            frame.setItem(mapItem(art, block.getWorld()), false);
+        } else {
+            frame = spawnBlockFrame(block, face, art);
+            if (frame == null) {
+                return BlockResult.NO_SPACE;
+            }
         }
-
-        blockGrafts.computeIfAbsent(key, k -> new EnumMap<>(BlockFace.class)).put(face, frame.getUniqueId());
-        frameToBlock.put(frame.getUniqueId(), key);
+        blockGrafts.computeIfAbsent(BlockKey.of(block), k -> new EnumMap<>(BlockFace.class))
+                .put(face, new BlockGraft(frame.getUniqueId(), art));
         GraftEffects.graftApplied(frame.getLocation());
         return BlockResult.GRAFTED;
     }
 
-    /** Removes every graft attached to a block. Returns true if something was removed. */
-    public boolean removeBlockGrafts(Block block) {
-        Map<BlockFace, UUID> faces = blockGrafts.remove(BlockKey.of(block));
+    /** Removes every graft attached to a block. */
+    public void removeBlockGrafts(Block block) {
+        Map<BlockFace, BlockGraft> faces = blockGrafts.remove(BlockKey.of(block));
         if (faces == null) {
-            return false;
+            return;
         }
-        for (UUID id : faces.values()) {
-            frameToBlock.remove(id);
-            Entity frame = block.getWorld().getEntity(id);
+        for (BlockGraft graft : faces.values()) {
+            Entity frame = block.getWorld().getEntity(graft.frameId());
             if (frame != null) {
                 GraftEffects.graftBroken(frame.getLocation());
                 frame.remove();
             }
         }
-        return true;
     }
 
     /** The block a grafted frame is attached to, or null if the frame is not a block graft. */
     public Block blockOfFrame(Entity frame) {
-        BlockKey key = frameToBlock.get(frame.getUniqueId());
-        return key == null ? null : key.toBlock(frame.getWorld());
+        for (Map.Entry<BlockKey, Map<BlockFace, BlockGraft>> entry : blockGrafts.entrySet()) {
+            for (BlockGraft graft : entry.getValue().values()) {
+                if (graft.frameId().equals(frame.getUniqueId())) {
+                    return entry.getKey().toBlock(frame.getWorld());
+                }
+            }
+        }
+        return null;
     }
 
-    private ItemFrame existingFrame(BlockKey key, BlockFace face, World world) {
-        Map<BlockFace, UUID> faces = blockGrafts.get(key);
-        if (faces == null || !faces.containsKey(face)) {
+    /**
+     * Keeps block grafts in sync with the world. Runs every second.
+     * Removes grafts whose block disappeared (pistons, water, falling blocks, anything)
+     * and restores frames that vanished because their chunk was unloaded.
+     */
+    public void validateBlockGrafts(List<World> worlds) {
+        Map<UUID, World> byId = new HashMap<>();
+        worlds.forEach(world -> byId.put(world.getUID(), world));
+
+        Iterator<Map.Entry<BlockKey, Map<BlockFace, BlockGraft>>> blocks = blockGrafts.entrySet().iterator();
+        while (blocks.hasNext()) {
+            Map.Entry<BlockKey, Map<BlockFace, BlockGraft>> entry = blocks.next();
+            BlockKey key = entry.getKey();
+            World world = byId.get(key.world());
+            if (world == null) {
+                blocks.remove();
+                continue;
+            }
+            if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) {
+                continue;
+            }
+            Block block = key.toBlock(world);
+            if (block.isPassable()) {
+                entry.getValue().values().forEach(graft -> removeEntity(world, graft.frameId(), true));
+                blocks.remove();
+                continue;
+            }
+            for (Map.Entry<BlockFace, BlockGraft> face : entry.getValue().entrySet()) {
+                if (liveFrame(world, face.getValue().frameId()) == null) {
+                    ItemFrame frame = spawnBlockFrame(block, face.getKey(), face.getValue().art());
+                    if (frame != null) {
+                        face.setValue(new BlockGraft(frame.getUniqueId(), face.getValue().art()));
+                    }
+                }
+            }
+            entry.getValue().values().removeIf(graft -> liveFrame(world, graft.frameId()) == null);
+            if (entry.getValue().isEmpty()) {
+                blocks.remove();
+            }
+        }
+    }
+
+    private ItemFrame spawnBlockFrame(Block block, BlockFace face, Fanart art) {
+        Block front = block.getRelative(face);
+        if (!front.isPassable()) {
             return null;
         }
-        Entity entity = world.getEntity(faces.get(face));
+        ItemStack mapItem = mapItem(art, block.getWorld());
+        try {
+            return block.getWorld().spawn(front.getLocation(), ItemFrame.class, spawned -> {
+                spawned.setFacingDirection(face, true);
+                setupFrame(spawned, mapItem);
+            });
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private ItemFrame liveFrame(World world, UUID id) {
+        Entity entity = world.getEntity(id);
         return entity instanceof ItemFrame frame && frame.isValid() ? frame : null;
     }
 
-    // ------------------------------------------------------------------ mobs
+    // ---------------------------------------------------- mobs and projectiles
 
     /** Grafts art onto a mob, replacing any art it already has. Returns false if no art is loaded. */
     public boolean graftMob(Entity mob) {
@@ -143,26 +195,53 @@ public final class GraftManager {
         if (art == null) {
             return false;
         }
-        removeRiders(mob);
-
-        boolean attached = false;
-        if (settings.mobMapArt()) {
-            attached = attachFrameRider(mob, art);
-        }
-        if (!attached) {
-            attachTextRider(mob, art, settings.mobSize(), false);
-        }
+        attachRider(mob, new RiderGraft(art, false));
         GraftEffects.graftApplied(mob.getLocation().add(0, mob.getHeight() / 2, 0));
         return true;
     }
 
-    /** Experimental: an item frame riding the mob. Falls back to text art if the server refuses. */
+    public boolean graftProjectile(Entity projectile) {
+        Fanart art = library.random();
+        if (art == null) {
+            return false;
+        }
+        attachRider(projectile, new RiderGraft(art, true));
+        GraftEffects.projectileGrafted(projectile.getLocation());
+        return true;
+    }
+
+    /** The target has been destroyed: remove its art and forget it. */
+    public boolean forgetTarget(Entity target) {
+        boolean known = riderGrafts.remove(target.getUniqueId()) != null;
+        return removeRiders(target) || known;
+    }
+
+    /** Restores art on a target whose chunk was reloaded. */
+    public void restore(Entity target) {
+        RiderGraft graft = riderGrafts.get(target.getUniqueId());
+        if (graft != null && !hasGraftRider(target)) {
+            attachRider(target, graft);
+        }
+    }
+
+    private void attachRider(Entity target, RiderGraft graft) {
+        removeRiders(target);
+        boolean attached = !graft.projectile() && settings.mobMapArt() && attachFrameRider(target, graft.art());
+        if (!attached) {
+            attached = attachTextRider(target, graft.art(),
+                    graft.projectile() ? settings.projectileSize() : settings.mobSize(), graft.projectile());
+        }
+        if (attached) {
+            riderGrafts.put(target.getUniqueId(), graft);
+        }
+    }
+
+    /** Experimental: an item frame riding the mob. Returns false so the caller can fall back. */
     private boolean attachFrameRider(Entity mob, Fanart art) {
         ItemStack mapItem = mapItem(art, mob.getWorld());
         ItemFrame frame;
         try {
-            frame = mob.getWorld().spawn(mob.getLocation(), ItemFrame.class,
-                    spawned -> setupFrame(spawned, mapItem));
+            frame = mob.getWorld().spawn(mob.getLocation(), ItemFrame.class, spawned -> setupFrame(spawned, mapItem));
         } catch (IllegalArgumentException e) {
             return false;
         }
@@ -173,54 +252,7 @@ public final class GraftManager {
         return true;
     }
 
-    // ------------------------------------------------------------ projectiles
-
-    public boolean graftProjectile(Entity projectile) {
-        Fanart art = library.random();
-        if (art == null) {
-            return false;
-        }
-        attachTextRider(projectile, art, settings.projectileSize(), true);
-        GraftEffects.projectileGrafted(projectile.getLocation());
-        return true;
-    }
-
-    // ---------------------------------------------------------------- shared
-
-    /** Removes all graft entities riding this entity. Returns true if any were removed. */
-    public boolean removeRiders(Entity vehicle) {
-        boolean removed = false;
-        for (Entity passenger : new ArrayList<>(vehicle.getPassengers())) {
-            if (isGraftEntity(passenger)) {
-                passenger.remove();
-                removed = true;
-            }
-        }
-        return removed;
-    }
-
-    /** Removes every graft entity in the given worlds and forgets all block grafts. */
-    public int clearAll(List<World> worlds) {
-        int count = 0;
-        for (World world : worlds) {
-            for (Entity entity : world.getEntities()) {
-                if (isGraftEntity(entity)) {
-                    entity.remove();
-                    count++;
-                }
-            }
-        }
-        blockGrafts.clear();
-        frameToBlock.clear();
-        return count;
-    }
-
-    /** Called after the fanart library is reloaded, so stale maps are rebuilt. */
-    public void onLibraryReloaded() {
-        maps.clear();
-    }
-
-    private void attachTextRider(Entity vehicle, Fanart art, float sizeInBlocks, boolean centered) {
+    private boolean attachTextRider(Entity vehicle, Fanart art, float sizeInBlocks, boolean centered) {
         float scale = sizeInBlocks / (art.textHeight() * TEXT_LINE_HEIGHT);
         float lift = centered ? -sizeInBlocks / 2f : 0.1f;
         TextDisplay display = vehicle.getWorld().spawn(vehicle.getLocation(), TextDisplay.class, spawned -> {
@@ -238,7 +270,59 @@ public final class GraftManager {
                     new Vector3f(scale, scale * settings.textYStretch(), scale),
                     new AxisAngle4f()));
         });
-        vehicle.addPassenger(display);
+        if (!vehicle.addPassenger(display)) {
+            display.remove();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean hasGraftRider(Entity vehicle) {
+        return vehicle.getPassengers().stream().anyMatch(this::isGraftEntity);
+    }
+
+    private boolean removeRiders(Entity vehicle) {
+        boolean removed = false;
+        for (Entity passenger : new ArrayList<>(vehicle.getPassengers())) {
+            if (isGraftEntity(passenger)) {
+                passenger.remove();
+                removed = true;
+            }
+        }
+        return removed;
+    }
+
+    // ---------------------------------------------------------------- shared
+
+    /** Removes every graft entity in the given worlds and forgets all grafts. */
+    public int clearAll(List<World> worlds) {
+        blockGrafts.clear();
+        riderGrafts.clear();
+        int count = 0;
+        for (World world : worlds) {
+            for (Entity entity : world.getEntities()) {
+                if (isGraftEntity(entity)) {
+                    entity.remove();
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /** Called after the fanart library is reloaded, so maps are rebuilt from the new images. */
+    public void onLibraryReloaded() {
+        maps.clear();
+    }
+
+    private void removeEntity(World world, UUID id, boolean withEffect) {
+        Entity entity = world.getEntity(id);
+        if (entity != null) {
+            if (withEffect) {
+                GraftEffects.graftBroken(entity.getLocation());
+            }
+            entity.remove();
+        }
     }
 
     private void setupFrame(ItemFrame frame, ItemStack mapItem) {
@@ -260,7 +344,7 @@ public final class GraftManager {
         return item;
     }
 
-    /** Lightweight block position key that does not hold a reference to the world. */
+    /** Block position key that does not hold a reference to the world. */
     private record BlockKey(UUID world, int x, int y, int z) {
         static BlockKey of(Block block) {
             return new BlockKey(block.getWorld().getUID(), block.getX(), block.getY(), block.getZ());
@@ -269,5 +353,13 @@ public final class GraftManager {
         Block toBlock(World world) {
             return world.getBlockAt(x, y, z);
         }
+    }
+
+    /** One grafted block face. */
+    private record BlockGraft(UUID frameId, Fanart art) {
+    }
+
+    /** Art riding a mob or projectile. */
+    private record RiderGraft(Fanart art, boolean projectile) {
     }
 }
