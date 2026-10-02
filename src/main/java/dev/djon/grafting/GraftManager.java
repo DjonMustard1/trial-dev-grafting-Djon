@@ -12,6 +12,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.MapMeta;
@@ -76,6 +77,11 @@ public final class GraftManager {
     }
 
     public BlockResult graftBlock(Block block, BlockFace face) {
+        return graftBlock(block, face, 1);
+    }
+
+    public BlockResult graftBlock(Block block, BlockFace face, int width) {
+        checkWidth(width);
         Fanart art = library.random();
         if (art == null) {
             return BlockResult.NO_ART;
@@ -85,19 +91,22 @@ public final class GraftManager {
         }
         Map<BlockFace, BlockGraft> faces = blockGrafts.get(BlockKey.of(block));
         BlockGraft existing = faces == null ? null : faces.get(face);
-        ItemFrame frame = existing == null ? null : liveFrame(block.getWorld(), existing.frameId());
-
+        Entity frame = existing == null || existing.width() != width ? null
+                : liveBlockArt(block.getWorld(), existing.frameId(), width);
         if (frame != null) {
             // Same face grafted again: swap the art in place.
-            frame.setItem(mapItem(art, block.getWorld()), false);
+            if (frame instanceof ItemFrame itemFrame) itemFrame.setItem(mapItem(art, block.getWorld()), false);
+            else ((ItemDisplay) frame).setItemStack(mapItem(art, block.getWorld()));
         } else {
-            frame = spawnBlockFrame(block, face, art);
+            Entity replacement = spawnBlockArt(block, face, art, width);
+            if (replacement != null && existing != null) removeEntity(block.getWorld(), existing.frameId(), false);
+            frame = replacement;
             if (frame == null) {
                 return BlockResult.NO_SPACE;
             }
         }
         blockGrafts.computeIfAbsent(BlockKey.of(block), k -> new EnumMap<>(BlockFace.class))
-                .put(face, new BlockGraft(frame.getUniqueId(), art));
+                .put(face, new BlockGraft(frame.getUniqueId(), art, width));
         GraftEffects.graftApplied(frame.getLocation());
         return new BlockResult(BlockResult.Status.GRAFTED, art);
     }
@@ -109,7 +118,7 @@ public final class GraftManager {
             return;
         }
         for (BlockGraft graft : faces.values()) {
-            Entity frame = block.getWorld().getEntity(graft.frameId());
+            Entity frame = findEntity(block.getWorld(), graft.frameId());
             if (frame != null) {
                 GraftEffects.graftBroken(frame.getLocation());
                 frame.remove();
@@ -127,6 +136,33 @@ public final class GraftManager {
             }
         }
         return null;
+    }
+
+    /** Returns the attached face for either kind of block art, or null. */
+    public BlockFace faceOfFrame(Entity artEntity) {
+        for (Map.Entry<BlockKey, Map<BlockFace, BlockGraft>> entry : blockGrafts.entrySet()) {
+            if (!entry.getKey().world().equals(artEntity.getWorld().getUID())) continue;
+            for (Map.Entry<BlockFace, BlockGraft> face : entry.getValue().entrySet()) {
+                if (face.getValue().frameId().equals(artEntity.getUniqueId())) return face.getKey();
+            }
+        }
+        return null;
+    }
+
+    /** Resizes an existing face without choosing new art. Returns false if absent or blocked. */
+    public boolean resizeBlock(Block block, BlockFace face, int width) {
+        checkWidth(width);
+        Map<BlockFace, BlockGraft> faces = blockGrafts.get(BlockKey.of(block));
+        BlockGraft previous = faces == null ? null : faces.get(face);
+        if (previous == null || block.isPassable()) return false;
+        Entity current = previous.width() == width
+                ? liveBlockArt(block.getWorld(), previous.frameId(), width) : null;
+        if (current != null) return true;
+        Entity replacement = spawnBlockArt(block, face, previous.art(), width);
+        if (replacement == null) return false;
+        removeEntity(block.getWorld(), previous.frameId(), false);
+        faces.put(face, new BlockGraft(replacement.getUniqueId(), previous.art(), width));
+        return true;
     }
 
     /**
@@ -157,18 +193,53 @@ public final class GraftManager {
                 continue;
             }
             for (Map.Entry<BlockFace, BlockGraft> face : entry.getValue().entrySet()) {
-                if (liveFrame(world, face.getValue().frameId()) == null) {
-                    ItemFrame frame = spawnBlockFrame(block, face.getKey(), face.getValue().art());
+                if (liveBlockArt(world, face.getValue().frameId(), face.getValue().width()) == null) {
+                    Entity frame = spawnBlockArt(block, face.getKey(), face.getValue().art(), face.getValue().width());
                     if (frame != null) {
-                        face.setValue(new BlockGraft(frame.getUniqueId(), face.getValue().art()));
+                        face.setValue(new BlockGraft(frame.getUniqueId(), face.getValue().art(), face.getValue().width()));
                     }
                 }
             }
-            entry.getValue().values().removeIf(graft -> liveFrame(world, graft.frameId()) == null);
+            entry.getValue().values().removeIf(graft -> liveBlockArt(world, graft.frameId(), graft.width()) == null);
             if (entry.getValue().isEmpty()) {
                 blocks.remove();
             }
         }
+    }
+
+    private Entity spawnBlockArt(Block block, BlockFace face, Fanart art, int width) {
+        if (width == 1) return spawnBlockFrame(block, face, art);
+        if (!block.getRelative(face).isPassable()) return null;
+        org.bukkit.Location location = block.getLocation().clone().add(0.5 + face.getModX() * 0.501,
+                0.5 + face.getModY() * 0.501, 0.5 + face.getModZ() * 0.501);
+        // The FIXED map item model is half-scale, so double its transform for a one-block-tall plane.
+        float yaw = switch (face) {
+            case NORTH -> 180f;
+            case EAST -> 90f;
+            case WEST -> -90f;
+            default -> 0f;
+        };
+        float pitch = face == BlockFace.UP ? -90f : face == BlockFace.DOWN ? 90f : 0f;
+        location.setYaw(yaw);
+        location.setPitch(pitch);
+        try {
+            return block.getWorld().spawn(location, ItemDisplay.class, spawned -> {
+                tag(spawned);
+                spawned.setItemStack(mapItem(art, block.getWorld()));
+                spawned.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
+                spawned.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(),
+                        new Vector3f(width * 2f, 2f, 2f), new AxisAngle4f()));
+                spawned.setBrightness(new Display.Brightness(15, 15));
+            });
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private Entity liveBlockArt(World world, UUID id, int width) {
+        Entity entity = world.getEntity(id);
+        return entity != null && entity.isValid() &&
+                (width == 1 ? entity instanceof ItemFrame : entity instanceof ItemDisplay) ? entity : null;
     }
 
     private ItemFrame spawnBlockFrame(Block block, BlockFace face, Fanart art) {
@@ -196,24 +267,42 @@ public final class GraftManager {
 
     /** Grafts art onto a mob, replacing any art it already has. Returns the art used, or null if none is loaded. */
     public Fanart graftMob(Entity mob) {
+        return graftMob(mob, 1);
+    }
+
+    public Fanart graftMob(Entity mob, int width) {
+        checkWidth(width);
         Fanart art = library.random();
         if (art == null) {
             return null;
         }
-        attachRider(mob, new RiderGraft(art, false));
+        if (!attachRider(mob, new RiderGraft(art, false, width))) return null;
         GraftEffects.graftApplied(mob.getLocation().add(0, mob.getHeight() / 2, 0));
         return art;
     }
 
     /** Grafts art onto a projectile. Returns the art used, or null if none is loaded. */
     public Fanart graftProjectile(Entity projectile) {
+        return graftProjectile(projectile, 1);
+    }
+
+    public Fanart graftProjectile(Entity projectile, int width) {
+        checkWidth(width);
         Fanart art = library.random();
         if (art == null) {
             return null;
         }
-        attachRider(projectile, new RiderGraft(art, true));
+        if (!attachRider(projectile, new RiderGraft(art, true, width))) return null;
         GraftEffects.projectileGrafted(projectile.getLocation());
         return art;
+    }
+
+    /** Resizes an existing mob graft while preserving its art. */
+    public boolean resizeMob(Entity mob, int width) {
+        checkWidth(width);
+        RiderGraft previous = riderGrafts.get(mob.getUniqueId());
+        return previous != null && !previous.projectile()
+                && attachRider(mob, new RiderGraft(previous.art(), false, width));
     }
 
     /** The target has been destroyed: remove its art and forget it. */
@@ -230,38 +319,22 @@ public final class GraftManager {
         }
     }
 
-    private void attachRider(Entity target, RiderGraft graft) {
+    private boolean attachRider(Entity target, RiderGraft graft) {
         removeRiders(target);
-        boolean attached = !graft.projectile() && settings.mobMapArt() && attachFrameRider(target, graft.art());
-        if (!attached) {
-            attached = attachTextRider(target, graft.art(),
-                    graft.projectile() ? settings.projectileSize() : settings.mobSize(), graft.projectile());
-        }
+        boolean attached = attachTextRider(target, graft.art(),
+                graft.projectile() ? settings.projectileSize() : settings.mobSize(), graft.projectile(), graft.width());
         if (attached) {
             riderGrafts.put(target.getUniqueId(), graft);
         }
+        return attached;
     }
 
-    /** Experimental: an item frame riding the mob. Returns false so the caller can fall back. */
-    private boolean attachFrameRider(Entity mob, Fanart art) {
-        ItemStack mapItem = mapItem(art, mob.getWorld());
-        ItemFrame frame;
-        try {
-            frame = mob.getWorld().spawn(mob.getLocation(), ItemFrame.class, spawned -> setupFrame(spawned, mapItem));
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-        if (!mob.addPassenger(frame)) {
-            frame.remove();
-            return false;
-        }
-        return true;
-    }
-
-    private boolean attachTextRider(Entity vehicle, Fanart art, float sizeInBlocks, boolean centered) {
+    private boolean attachTextRider(Entity vehicle, Fanart art, float sizeInBlocks, boolean centered, int width) {
         float scale = sizeInBlocks / (art.textHeight() * TEXT_LINE_HEIGHT);
         float lift = centered ? -sizeInBlocks / 2f : 0.1f;
-        TextDisplay display = vehicle.getWorld().spawn(vehicle.getLocation(), TextDisplay.class, spawned -> {
+        TextDisplay display;
+        try {
+            display = vehicle.getWorld().spawn(vehicle.getLocation(), TextDisplay.class, spawned -> {
             tag(spawned);
             spawned.text(art.textArt());
             spawned.setLineWidth(Integer.MAX_VALUE / 2);
@@ -273,9 +346,12 @@ public final class GraftManager {
             spawned.setTransformation(new Transformation(
                     new Vector3f(0, lift, 0),
                     new AxisAngle4f(),
-                    new Vector3f(scale, scale * settings.textYStretch(), scale),
+                    new Vector3f(scale * width, scale * settings.textYStretch(), scale),
                     new AxisAngle4f()));
-        });
+            });
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return false;
+        }
         if (!vehicle.addPassenger(display)) {
             display.remove();
             return false;
@@ -322,13 +398,21 @@ public final class GraftManager {
     }
 
     private void removeEntity(World world, UUID id, boolean withEffect) {
-        Entity entity = world.getEntity(id);
+        Entity entity = findEntity(world, id);
         if (entity != null) {
             if (withEffect) {
                 GraftEffects.graftBroken(entity.getLocation());
             }
             entity.remove();
         }
+    }
+
+    private Entity findEntity(World world, UUID id) {
+        Entity entity = world.getEntity(id);
+        if (entity != null) return entity;
+        // A newly spawned display can already be in the chunk before a UUID lookup sees it.
+        return world.getEntities().stream().filter(candidate -> candidate.getUniqueId().equals(id))
+                .findFirst().orElse(null);
     }
 
     private void setupFrame(ItemFrame frame, ItemStack mapItem) {
@@ -342,6 +426,10 @@ public final class GraftManager {
     private void tag(Entity entity) {
         entity.setPersistent(false);
         entity.getPersistentDataContainer().set(graftKey, PersistentDataType.BOOLEAN, true);
+    }
+
+    private static void checkWidth(int width) {
+        if (width < 1 || width > 4) throw new IllegalArgumentException("width must be between 1 and 4");
     }
 
     private ItemStack mapItem(Fanart art, World world) {
@@ -362,10 +450,10 @@ public final class GraftManager {
     }
 
     /** One grafted block face. */
-    private record BlockGraft(UUID frameId, Fanart art) {
+    private record BlockGraft(UUID frameId, Fanart art, int width) {
     }
 
     /** Art riding a mob or projectile. */
-    private record RiderGraft(Fanart art, boolean projectile) {
+    private record RiderGraft(Fanart art, boolean projectile, int width) {
     }
 }

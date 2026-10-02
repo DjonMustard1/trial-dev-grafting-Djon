@@ -1,13 +1,19 @@
 package dev.djon.grafting;
 
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-/** Subtle fog and whispered resonance for grafting. */
+/** Particle and sound cues for grafting. */
 public final class GraftEffects {
+    private static final Particle.DustOptions VIOLET =
+            new Particle.DustOptions(Color.fromRGB(155, 77, 238), 1.1f);
+    private static final Particle.DustOptions LILAC =
+            new Particle.DustOptions(Color.fromRGB(218, 166, 255), 0.8f);
+
     private GraftEffects() {}
 
     /** A graft settles into the target. */
@@ -17,10 +23,8 @@ public final class GraftEffects {
             return;
         }
 
-        world.spawnParticle(Particle.WHITE_SMOKE, where, 12, 0.22, 0.18, 0.22, 0.005);
-        world.spawnParticle(Particle.ASH, where, 8, 0.28, 0.24, 0.28, 0.0);
-        world.spawnParticle(Particle.REVERSE_PORTAL, where, 4, 0.16, 0.16, 0.16, 0.015);
-        world.playSound(where, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.35f, 0.55f);
+        purpleBurst(world, where, false);
+        world.playSound(where, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.4f, 1.35f);
     }
 
     /** A broken graft dissolves into gray motes. */
@@ -53,14 +57,30 @@ public final class GraftEffects {
         }
     }
 
-    /** A launched graft leaves only a faint trace. */
+    /** A launched graft flashes briefly in purple. */
     public static void projectileGrafted(Location where) {
         World world = where.getWorld();
         if (world == null) {
             return;
         }
 
-        world.spawnParticle(Particle.WHITE_SMOKE, where, 2, 0.06, 0.06, 0.06, 0.002);
-        world.spawnParticle(Particle.ASH, where, 2, 0.08, 0.08, 0.08, 0.0);
+        purpleBurst(world, where, true);
+    }
+
+    /** A compact radial spray with bright tips, scaled down for projectiles. */
+    private static void purpleBurst(World world, Location center, boolean small) {
+        int rays = small ? 6 : 10;
+        double radius = small ? 0.3 : 0.55;
+        world.spawnParticle(Particle.DUST, center, small ? 5 : 12,
+                0.08, 0.08, 0.08, 0.0, VIOLET);
+        for (int i = 0; i < rays; i++) {
+            double angle = 2.0 * Math.PI * i / rays;
+            double y = (i % 3 - 1) * radius * 0.55;
+            Location tip = center.clone().add(radius * Math.cos(angle), y,
+                    radius * Math.sin(angle));
+            world.spawnParticle(Particle.DUST, tip, 1, 0, 0, 0, 0, LILAC);
+        }
+        world.spawnParticle(Particle.FIREWORK, center, small ? 2 : 4,
+                radius * 0.35, radius * 0.3, radius * 0.35, 0.01);
     }
 }

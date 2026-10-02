@@ -1,5 +1,6 @@
 package dev.djon.grafting;
 
+import io.papermc.paper.event.player.PlayerPickEntityEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -8,6 +9,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.block.Action;
@@ -76,6 +78,7 @@ class GraftingPluginTest {
         return world.getEntities().stream()
                 .filter(type::isInstance)
                 .filter(plugin.grafts()::isGraftEntity)
+                .filter(Entity::isValid)
                 .count();
     }
 
@@ -200,7 +203,65 @@ class GraftingPluginTest {
         List<Entity> riders = zombie.getPassengers();
         assertEquals(1, riders.size());
         assertTrue(plugin.grafts().isGraftEntity(riders.get(0)));
+        assertTrue(riders.get(0) instanceof TextDisplay, "mob art should be visible from either side");
         assertFalse(riders.get(0).isPersistent());
+    }
+
+    @Test
+    void sneakingMiddleClickResizesMobArtWithoutReplacingTarget() throws IOException {
+        addFanart("a");
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        rightClickEntity(zombie);
+        TextDisplay first = (TextDisplay) zombie.getPassengers().get(0);
+        float originalWidth = first.getTransformation().getScale().x;
+        float originalHeight = first.getTransformation().getScale().y;
+
+        PlayerPickEntityEvent pick = new PlayerPickEntityEvent(player, zombie,
+                new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1);
+        server.getPluginManager().callEvent(pick);
+
+        assertTrue(pick.isCancelled(), "middle click should not replace the player's held item");
+        assertEquals(1, zombie.getPassengers().size());
+        TextDisplay resized = (TextDisplay) zombie.getPassengers().get(0);
+        assertEquals(originalWidth * 2, resized.getTransformation().getScale().x, 0.001f);
+        assertEquals(originalHeight, resized.getTransformation().getScale().y, 0.001f);
+    }
+
+    @Test
+    void chosenWidthMakesNextBlockGraftWider() throws IOException {
+        addFanart("a");
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, zombie,
+                new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1));
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE);
+        rightClickBlock(block, BlockFace.NORTH);
+        assertEquals(1, count(ItemDisplay.class));
+    }
+
+    @Test
+    void middleClickingExistingBlockArtWidensItAndBreakingBlockRemovesIt() throws IOException {
+        addFanart("a");
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE);
+        rightClickBlock(block, BlockFace.NORTH);
+        ItemFrame original = world.getEntitiesByClass(ItemFrame.class).iterator().next();
+
+        server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, original,
+                original.getItem(), false, 0, -1));
+
+        assertEquals(0, count(ItemFrame.class));
+        assertEquals(1, count(ItemDisplay.class));
+        ItemDisplay wide = world.getEntitiesByClass(ItemDisplay.class).iterator().next();
+        Block anchor = plugin.grafts().blockOfFrame(wide);
+        assertNotNull(anchor);
+        assertEquals(block.getX(), anchor.getX());
+        assertEquals(block.getY(), anchor.getY());
+        assertEquals(block.getZ(), anchor.getZ());
+        assertEquals(block.getWorld().getUID(), anchor.getWorld().getUID());
+        plugin.grafts().removeBlockGrafts(block);
+        assertEquals(null, plugin.grafts().blockOfFrame(wide), "block graft entry should be forgotten");
+        assertEquals(0, count(ItemDisplay.class), "wide display must be removed on block break");
     }
 
     @Test

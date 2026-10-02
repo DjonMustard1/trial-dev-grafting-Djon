@@ -1,6 +1,10 @@
 package dev.djon.grafting;
 
 import dev.djon.grafting.art.Fanart;
+import io.papermc.paper.event.player.PlayerPickBlockEvent;
+import io.papermc.paper.event.player.PlayerPickEntityEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -25,6 +29,7 @@ import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
@@ -51,6 +56,8 @@ public final class GraftListener implements Listener {
 
     private final GraftManager grafts;
     private final Set<UUID> projectileMode = new HashSet<>();
+    /** Width selected by sneaking and middle-clicking a block or entity. */
+    private final Map<UUID, Integer> selectedWidth = new HashMap<>();
     /** Time of each player's last shift + right-click on an entity, in milliseconds. */
     private final Map<UUID, Long> lastEntityClick = new HashMap<>();
 
@@ -98,25 +105,66 @@ public final class GraftListener implements Listener {
         if (grafts.isGraftEntity(target)) {
             event.setCancelled(true);
             Block anchor = grafts.blockOfFrame(target);
-            if (anchor != null && target instanceof Hanging hanging) {
-                graftBlock(player, anchor, hanging.getAttachedFace().getOppositeFace());
+            if (anchor != null) {
+                BlockFace face = grafts.faceOfFrame(target);
+                if (face != null) graftBlock(player, anchor, face);
             } else if (target.getVehicle() != null) {
                 graftMob(player, target.getVehicle());
             }
             return;
         }
 
-        if (target instanceof LivingEntity) {
+        if (!(target instanceof Player)) {
             event.setCancelled(true);
             graftMob(player, target);
         }
+    }
+
+    /** Pick-block is the client's middle mouse button. Cancel vanilla item picking. */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPickBlock(PlayerPickBlockEvent event) {
+        Player player = event.getPlayer();
+        if (!player.isSneaking() || !player.hasPermission("grafting.use")) return;
+        event.setCancelled(true);
+        int width = cycleWidth(player);
+        RayTraceResult hit = player.rayTraceBlocks(6);
+        if (hit != null && event.getBlock().equals(hit.getHitBlock()) && hit.getHitBlockFace() != null) {
+            grafts.resizeBlock(event.getBlock(), hit.getHitBlockFace(), width);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPickEntity(PlayerPickEntityEvent event) {
+        Player player = event.getPlayer();
+        if (!player.isSneaking() || !player.hasPermission("grafting.use")) return;
+        event.setCancelled(true);
+        int width = cycleWidth(player);
+        Entity target = event.getEntity();
+        Block anchor = grafts.blockOfFrame(target);
+        if (anchor != null) {
+            BlockFace face = grafts.faceOfFrame(target);
+            if (face != null) grafts.resizeBlock(anchor, face, width);
+        } else {
+            grafts.resizeMob(target.getVehicle() != null && grafts.isGraftEntity(target)
+                    ? target.getVehicle() : target, width);
+        }
+    }
+
+    private int cycleWidth(Player player) {
+        int width = selectedWidth.compute(player.getUniqueId(), (id, old) -> old == null || old >= 4 ? 2 : old + 1);
+        player.sendActionBar(Component.text("Graft width: " + width + "x (middle-click again to change)", NamedTextColor.LIGHT_PURPLE));
+        return width;
+    }
+
+    private int width(Player player) {
+        return selectedWidth.getOrDefault(player.getUniqueId(), 1);
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onLaunch(ProjectileLaunchEvent event) {
         Projectile projectile = event.getEntity();
         if (projectile.getShooter() instanceof Player player && projectileMode.contains(player.getUniqueId())) {
-            Fanart art = grafts.graftProjectile(projectile);
+            Fanart art = grafts.graftProjectile(projectile, width(player));
             if (art != null) {
                 creditProjectile(player, art);
             }
@@ -186,6 +234,7 @@ public final class GraftListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         projectileMode.remove(event.getPlayer().getUniqueId());
+        selectedWidth.remove(event.getPlayer().getUniqueId());
         lastEntityClick.remove(event.getPlayer().getUniqueId());
         lastProjectileCredit.remove(event.getPlayer().getUniqueId());
     }
@@ -209,7 +258,7 @@ public final class GraftListener implements Listener {
     }
 
     private void graftBlock(Player player, Block block, BlockFace face) {
-        GraftManager.BlockResult result = grafts.graftBlock(block, face);
+        GraftManager.BlockResult result = grafts.graftBlock(block, face, width(player));
         switch (result.status()) {
             case GRAFTED -> credit(player, result.art());
             case NO_ART -> player.sendMessage(Messages.noArt(grafts.library()));
@@ -218,7 +267,7 @@ public final class GraftListener implements Listener {
     }
 
     private void graftMob(Player player, Entity mob) {
-        Fanart art = grafts.graftMob(mob);
+        Fanart art = grafts.graftMob(mob, width(player));
         if (art != null) {
             credit(player, art);
         } else {

@@ -24,11 +24,9 @@ itself stops existing.
 
 - **Blocks:** the clicked face is overlaid with a sharp 128 x 128 map render of
   the fanart. Break the block and the art goes with it.
-- **Mobs:** the art rides on the mob. The plugin first tries a map in an
-  invisible item frame (sharp, experimental) and falls back to pixel art built
-  from colored text if the server refuses it. Kill the mob and the art vanishes.
-  Item frames are block-attached in vanilla, so a riding frame may move in
-  whole-block steps; set `mob-display: text` for smooth art that faces the viewer.
+- **Mobs and other entities:** billboarded pixel art rides on the target,
+  facing the viewer instead of using an unreliable block-attached item frame.
+  Kill or remove the target and the art vanishes.
 - **Projectiles:** toggle projectile grafting and everything you shoot or throw
   (arrows, tridents, snowballs, eggs, pearls, potions, wind charges) carries a
   piece of pixel art until it lands.
@@ -37,7 +35,8 @@ itself stops existing.
 - **Temporary by design:** graft entities are never saved, so a restart wipes them.
   While the server runs, grafts survive chunk reloads, and block art disappears if
   its block is removed in any way (mined, pushed by a piston, washed away, exploded).
-- Subtle gray fog and quiet chimes when a graft takes hold or breaks.
+- A brief purple firework-like burst when a graft succeeds, with gray motes
+  when it breaks.
 
 ## Usage
 
@@ -45,6 +44,7 @@ itself stops existing.
 |--------|--------|
 | Shift + right-click a block | Graft fanart onto that face (again to swap it) |
 | Shift + right-click a mob | Graft fanart onto the mob (again to swap it) |
+| Shift + middle-click a block or entity | Cycle art width from 1x to 4x; an existing graft resizes immediately and the chosen width applies to your next graft |
 | Shift + right-click the air | Toggle projectile grafting on or off (hold any item that is not a bow, trident, or throwable) |
 
 > The Minecraft client does not tell the server about right-clicks on air with an
@@ -69,10 +69,10 @@ itself stops existing.
 
 ### Crediting artists
 
-Every graft posts the artist's name and social in chat, for example
+When an image has an artist entry, grafting it posts the artist's name and social in chat, for example
 `Art by Jane Doe (@janedoe on X)`. If a link is set, the social is clickable.
 Projectile credits are limited to one line every 2 seconds per player so rapid fire
-does not flood chat. `/graft list` shows every piece with its credit.
+does not flood chat. `/graft list` shows any credits next to their images.
 
 Credits live in `plugins/Grafting/fanart/credits.yml`, keyed by file name:
 
@@ -93,7 +93,6 @@ on the longest side for text art. Both can be tuned in `config.yml`.
 `plugins/Grafting/config.yml`:
 
 ```yaml
-mob-display: map        # map (sharp, experimental) or text (always works)
 text-art:
   resolution: 32        # longest side of text art, 8 to 64
   mob-size: 1.5         # art height in blocks
