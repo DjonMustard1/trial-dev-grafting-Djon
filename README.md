@@ -27,6 +27,8 @@ itself stops existing.
 - **Mobs:** the art rides on the mob. The plugin first tries a map in an
   invisible item frame (sharp, experimental) and falls back to pixel art built
   from colored text if the server refuses it. Kill the mob and the art vanishes.
+  Item frames are block-attached in vanilla, so a riding frame may move in
+  whole-block steps; set `mob-display: text` for smooth art that faces the viewer.
 - **Projectiles:** toggle projectile grafting and everything you shoot or throw
   (arrows, tridents, snowballs, eggs, pearls, potions, wind charges) carries a
   piece of pixel art until it lands.

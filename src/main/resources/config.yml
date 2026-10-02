@@ -2,8 +2,11 @@
 
 # How art is shown on mobs:
 #   map  - sharp 128x128 map art in an invisible item frame riding the mob (experimental).
-#          If the server refuses the rider, text art is used instead.
-#   text - pixel art built from colored text. Always works, lower detail.
+#          Item frames are block-attached entities: vanilla snaps their position to the
+#          block grid, so on a moving mob the art may jump in whole-block steps and is
+#          only visible from one side. If the server refuses the rider, text art is used.
+#   text - pixel art built from colored text. Follows the mob smoothly and always faces
+#          the viewer, lower detail.
 mob-display: map
 
 text-art:
