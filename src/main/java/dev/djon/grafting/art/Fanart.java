@@ -13,7 +13,7 @@ import java.awt.image.BufferedImage;
  * @param textWidth  width of the text art in pixels
  * @param textHeight height of the text art in pixels
  * @param credit     the artist, shown in chat whenever this art is grafted
- * @param source     the original image, capped at 512 pixels, used to cut wide grafts into tiles
+ * @param source     the original image, capped at 1280 pixels, used to cut wide grafts into tiles
  * @param textBackground average RGB of the text art, drawn behind it to hide gaps between pixels
  */
 public record Fanart(String name, BufferedImage mapImage, Component textArt, int textWidth, int textHeight,

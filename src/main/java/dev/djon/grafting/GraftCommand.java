@@ -13,11 +13,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * /graft [list | reload | clear | projectiles]
+ * /graft [list | reload | clear | projectiles | size &lt;1-10&gt;]
  */
 public final class GraftCommand implements TabExecutor {
 
-    private static final List<String> SUBCOMMANDS = List.of("list", "reload", "clear", "projectiles");
+    private static final List<String> SUBCOMMANDS = List.of("list", "reload", "clear", "projectiles", "size");
 
     private final GraftingPlugin plugin;
 
@@ -49,9 +49,31 @@ public final class GraftCommand implements TabExecutor {
                     sender.sendMessage(Component.text("Only players with grafting.use can do that.", NamedTextColor.RED));
                 }
             }
+            case "size" -> size(sender, label, args);
             default -> help(sender, label);
         }
         return true;
+    }
+
+    private void size(CommandSender sender, String label, String[] args) {
+        if (!(sender instanceof Player player) || !player.hasPermission("grafting.use")) {
+            sender.sendMessage(Component.text("Only players with grafting.use can do that.", NamedTextColor.RED));
+            return;
+        }
+        int max = GraftManager.MAX_WIDTH;
+        int width;
+        try {
+            width = args.length < 2 ? -1 : Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            width = -1;
+        }
+        if (width < 1 || width > max) {
+            sender.sendMessage(Component.text("Usage: /" + label + " size <1-" + max + ">  (now "
+                    + plugin.listener().width(player) + ")", NamedTextColor.RED));
+            return;
+        }
+        plugin.listener().setWidth(player, width);
+        sender.sendMessage(Component.text("Graft size set to " + width + "x" + width + ".", NamedTextColor.LIGHT_PURPLE));
     }
 
     private void list(CommandSender sender) {
@@ -74,7 +96,9 @@ public final class GraftCommand implements TabExecutor {
         sender.sendMessage(Component.text("Grafting", NamedTextColor.GOLD));
         sender.sendMessage(Component.text(" Shift + right-click a block or mob to graft fanart onto it.", NamedTextColor.GRAY));
         sender.sendMessage(Component.text(" Shift + right-click the air to toggle projectile grafting.", NamedTextColor.GRAY));
-        sender.sendMessage(Component.text(" /" + label + " list | reload | clear | projectiles", NamedTextColor.GRAY));
+        sender.sendMessage(Component.text(" Shift + middle-click, or /" + label + " size <1-" + GraftManager.MAX_WIDTH
+                + ">, to change graft size.", NamedTextColor.GRAY));
+        sender.sendMessage(Component.text(" /" + label + " list | reload | clear | projectiles | size", NamedTextColor.GRAY));
     }
 
     private boolean requireAdmin(CommandSender sender) {
@@ -87,6 +111,10 @@ public final class GraftCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("size")) {
+            return java.util.stream.IntStream.rangeClosed(1, GraftManager.MAX_WIDTH).mapToObj(String::valueOf)
+                    .filter(s -> s.startsWith(args[1])).toList();
+        }
         if (args.length != 1) {
             return List.of();
         }

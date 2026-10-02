@@ -8,7 +8,7 @@ author: DjonMustard1
 commands:
   graft:
     description: Grafting help, fanart list, reload, clear, and projectile toggle.
-    usage: /graft [list|reload|clear|projectiles]
+    usage: /graft [list|reload|clear|projectiles|size <1-10>]
 
 permissions:
   grafting.use:

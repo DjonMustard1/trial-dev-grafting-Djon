@@ -271,16 +271,39 @@ class GraftingPluginTest {
     }
 
     @Test
-    void sizeCyclesBackToOneAfterFour() throws IOException {
+    void sizeCyclesBackToOneAfterTen() throws IOException {
         addFanart("a");
         Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
-        int[] seen = new int[5];
-        for (int i = 0; i < 5; i++) {
+        int[] seen = new int[11];
+        for (int i = 0; i < 11; i++) {
             server.getPluginManager().callEvent(new PlayerPickEntityEvent(player, zombie,
                     new ItemStack(Material.ZOMBIE_SPAWN_EGG), false, 0, -1));
             seen[i] = plugin.listener().width(player);
         }
-        assertEquals(List.of(2, 3, 4, 1, 2), java.util.Arrays.stream(seen).boxed().toList());
+        assertEquals(List.of(2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2), java.util.Arrays.stream(seen).boxed().toList());
+    }
+
+    @Test
+    void sizeCommandSetsSizeDirectly() throws IOException {
+        player.performCommand("graft size 10");
+        assertEquals(10, plugin.listener().width(player));
+        player.performCommand("graft size 11");
+        assertEquals(10, plugin.listener().width(player), "out of range is rejected");
+        player.performCommand("graft size abc");
+        assertEquals(10, plugin.listener().width(player));
+    }
+
+    @Test
+    void tenByTenArtFillsABigWall() throws IOException {
+        addFanart("a"); // 64 x 48, so 10 x 8 tiles at size 10
+        for (int x = -6; x <= 6; x++) {
+            for (int y = 95; y <= 110; y++) {
+                world.getBlockAt(x, y, 2).setType(Material.STONE);
+            }
+        }
+        player.performCommand("graft size 10");
+        rightClickBlock(world.getBlockAt(0, 96, 2), BlockFace.NORTH);
+        assertEquals(80, count(ItemFrame.class));
     }
 
     @Test

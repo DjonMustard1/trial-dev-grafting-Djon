@@ -201,12 +201,18 @@ public final class GraftListener implements Listener {
         }
     }
 
-    /** Cycles the player's graft size 1, 2, 3, 4, then back to 1. */
+    /** Cycles the player's graft size 1, 2, ... 10, then back to 1. */
     private int cycleWidth(Player player) {
         int width = selectedWidth.compute(player.getUniqueId(),
                 (id, old) -> old == null ? 2 : old >= GraftManager.MAX_WIDTH ? 1 : old + 1);
         player.sendActionBar(Messages.size(width));
         return width;
+    }
+
+    /** Sets the player's graft size directly, used by /graft size. */
+    public void setWidth(Player player, int width) {
+        selectedWidth.put(player.getUniqueId(), width);
+        player.sendActionBar(Messages.size(width));
     }
 
     int width(Player player) {

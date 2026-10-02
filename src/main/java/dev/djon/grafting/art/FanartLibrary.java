@@ -76,10 +76,13 @@ public final class FanartLibrary {
         BufferedImage mapImage = ArtProcessor.fitToSquare(image, MAP_SIZE);
         int[][] grid = ArtProcessor.toPixelGrid(image, textArtSize);
         return new Fanart(name, mapImage, PixelArtText.fromGrid(grid), grid[0].length, grid.length, credit,
-                capSize(image, MAP_SIZE * 4), ArtProcessor.averageColor(grid));
+                capSize(image, MAP_SIZE * MAX_TILES), ArtProcessor.averageColor(grid));
     }
 
-    /** Keeps at most enough pixels for the widest (4 x 4 map) graft. */
+    /** Most map tiles along one side of the biggest graft. */
+    public static final int MAX_TILES = 10;
+
+    /** Keeps at most enough pixels for the widest (10 x 10 map) graft. */
     private static BufferedImage capSize(BufferedImage image, int max) {
         if (image.getWidth() <= max && image.getHeight() <= max) {
             return image;

@@ -40,7 +40,7 @@ import java.util.UUID;
 public final class GraftManager {
 
     /** Largest graft, in blocks per side. */
-    public static final int MAX_WIDTH = 4;
+    public static final int MAX_WIDTH = 10;
 
     /** Height in blocks of one line of text in a text display at scale 1. */
     private static final float TEXT_LINE_HEIGHT = 0.25f;

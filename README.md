@@ -24,7 +24,7 @@ itself stops existing.
 
 - **Blocks:** the clicked face is overlaid with a sharp 128 x 128 map render of
   the fanart. Break the block and the art goes with it.
-- **Adjustable size:** shift + middle-click to pick 1x1 up to 4x4. Big art is cut
+- **Adjustable size:** shift + middle-click (or `/graft size <1-10>`) to pick 1x1 up to 10x10. Big art is cut
   into a grid of map tiles, one per block, so it stays just as sharp. The grid follows
   the picture's shape (a wide banner at 4x becomes 4 x 1), and if the wall is too
   small the largest size that fits is used.
@@ -50,7 +50,7 @@ itself stops existing.
 |--------|--------|
 | Shift + right-click a block | Graft fanart onto that face (again to swap it) |
 | Shift + right-click a mob | Graft fanart onto the mob (again to swap it) |
-| Shift + middle-click a block, art, or mob | Cycle graft size 1x, 2x, 3x, 4x, back to 1x. Existing art you point at resizes right away, and the size applies to your next grafts |
+| Shift + middle-click a block, art, or mob | Cycle graft size 1x up to 10x, then back to 1x. Existing art you point at resizes right away, and the size applies to your next grafts |
 | Shift + right-click the air | Toggle projectile grafting on or off (hold any item that is not a bow, trident, or throwable) |
 
 > The Minecraft client does not tell the server about right-clicks on air with an
@@ -61,6 +61,7 @@ itself stops existing.
 | `/graft` | | Help |
 | `/graft list` | | List the loaded fanart |
 | `/graft projectiles` | `grafting.use` | Toggle projectile grafting |
+| `/graft size <1-10>` | `grafting.use` | Jump straight to a graft size |
 | `/graft reload` | `grafting.admin` | Reload images from the fanart folder |
 | `/graft clear` | `grafting.admin` | Remove every active graft |
 
