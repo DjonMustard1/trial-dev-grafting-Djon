@@ -55,6 +55,9 @@ public final class GraftListener implements Listener {
             Material.FIRE_CHARGE, Material.FISHING_ROD);
 
     private final GraftManager grafts;
+    private final org.bukkit.plugin.Plugin plugin;
+    /** Players whose graft is still charging, so repeated clicks do not stack. */
+    private final Set<UUID> charging = new HashSet<>();
     private final Set<UUID> projectileMode = new HashSet<>();
     /** Width selected by sneaking and middle-clicking a block or entity. */
     private final Map<UUID, Integer> selectedWidth = new HashMap<>();
@@ -68,8 +71,48 @@ public final class GraftListener implements Listener {
     static final long PROJECTILE_CREDIT_COOLDOWN_MS = 2000;
     private final Map<UUID, Long> lastProjectileCredit = new HashMap<>();
 
-    public GraftListener(GraftManager grafts) {
+    public GraftListener(GraftManager grafts, org.bukkit.plugin.Plugin plugin) {
         this.grafts = grafts;
+        this.plugin = plugin;
+    }
+
+    /** Ticks the purple potion swirl plays where the art will appear before it does. */
+    private int chargeTicks() {
+        return Math.max(0, Math.min(100, plugin.getConfig().getInt("effects.charge-ticks", 16)));
+    }
+
+    /**
+     * Plays {@code swirl} every few ticks for the charge time, then runs {@code graft}.
+     * With no charge time the graft happens at once.
+     */
+    private void charge(Player player, Runnable swirl, java.util.function.BooleanSupplier stillValid, Runnable graft) {
+        int ticks = chargeTicks();
+        if (ticks == 0) {
+            graft.run();
+            return;
+        }
+        UUID id = player.getUniqueId();
+        if (!charging.add(id)) {
+            return;
+        }
+        player.getWorld().playSound(player.getLocation(), org.bukkit.Sound.ENTITY_WITCH_DRINK, 0.35f, 1.4f);
+        swirl.run();
+        int[] elapsed = {0};
+        plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
+            elapsed[0] += 4;
+            if (!player.isOnline() || !stillValid.getAsBoolean()) {
+                charging.remove(id);
+                task.cancel();
+                return;
+            }
+            if (elapsed[0] >= ticks) {
+                charging.remove(id);
+                task.cancel();
+                graft.run();
+                return;
+            }
+            swirl.run();
+        }, 4L, 4L);
     }
 
     // ----------------------------------------------------------------- input
@@ -244,6 +287,7 @@ public final class GraftListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         projectileMode.remove(event.getPlayer().getUniqueId());
+        charging.remove(event.getPlayer().getUniqueId());
         selectedWidth.remove(event.getPlayer().getUniqueId());
         lastEntityClick.remove(event.getPlayer().getUniqueId());
         lastProjectileCredit.remove(event.getPlayer().getUniqueId());
@@ -269,26 +313,50 @@ public final class GraftListener implements Listener {
 
     private void graftBlock(Player player, Block block, BlockFace face) {
         int width = width(player);
-        GraftManager.BlockResult result = grafts.graftBlock(block, face, width);
-        switch (result.status()) {
-            case GRAFTED -> {
-                credit(player, result.art());
-                if (result.width() < width) {
-                    player.sendActionBar(Messages.shrunk(width, result.width()));
-                }
-            }
-            case NO_ART -> player.sendMessage(Messages.noArt(grafts.library()));
-            case NO_SPACE -> player.sendActionBar(Messages.NO_SPACE);
+        Fanart art = grafts.library().random();
+        if (art == null) {
+            player.sendMessage(Messages.noArt(grafts.library()));
+            return;
         }
+        java.util.List<Block> footprint = grafts.previewBlock(block, face, width, art);
+        if (footprint.isEmpty()) {
+            player.sendActionBar(Messages.NO_SPACE);
+            return;
+        }
+        Material type = block.getType();
+        charge(player,
+                () -> footprint.forEach(tile -> GraftEffects.potionSwirlOnFace(tile.getLocation().clone().add(0.5, 0.5, 0.5), face)),
+                () -> block.getType() == type,
+                () -> {
+                    GraftManager.BlockResult result = grafts.graftBlock(block, face, width, art);
+                    switch (result.status()) {
+                        case GRAFTED -> {
+                            credit(player, result.art());
+                            if (result.width() < width) {
+                                player.sendActionBar(Messages.shrunk(width, result.width()));
+                            }
+                        }
+                        case NO_ART -> player.sendMessage(Messages.noArt(grafts.library()));
+                        case NO_SPACE -> player.sendActionBar(Messages.NO_SPACE);
+                    }
+                });
     }
 
     private void graftMob(Player player, Entity mob) {
-        Fanart art = grafts.graftMob(mob, width(player));
-        if (art != null) {
-            credit(player, art);
-        } else {
+        Fanart art = grafts.library().random();
+        if (art == null) {
             player.sendMessage(Messages.noArt(grafts.library()));
+            return;
         }
+        int width = width(player);
+        charge(player,
+                () -> GraftEffects.potionSwirlAround(mob),
+                mob::isValid,
+                () -> {
+                    if (grafts.graftMob(mob, width, art) != null) {
+                        credit(player, art);
+                    }
+                });
     }
 
     /** Credits the artist in chat. */

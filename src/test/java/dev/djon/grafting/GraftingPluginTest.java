@@ -574,9 +574,47 @@ class GraftingPluginTest {
 
     // ------------------------------------------------------------- helpers
 
+    /** Clicks, then waits out the potion charge-up so the art has appeared. */
     private void rightClickBlock(Block block, BlockFace face) {
         server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
                 player.getInventory().getItemInMainHand(), block, face, EquipmentSlot.HAND));
+        server.getScheduler().performTicks(CHARGE);
+    }
+
+    private static final int CHARGE = 20;
+
+    @Test
+    void artAppearsOnlyAfterPotionChargeUp() throws IOException {
+        addFanart("a");
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE);
+        server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
+                player.getInventory().getItemInMainHand(), block, BlockFace.NORTH, EquipmentSlot.HAND));
+        assertEquals(0, count(ItemFrame.class), "swirls first, art after");
+        server.getScheduler().performTicks(CHARGE);
+        assertEquals(1, count(ItemFrame.class));
+    }
+
+    @Test
+    void chargeIsCancelledIfTheBlockIsBroken() throws IOException {
+        addFanart("a");
+        Block block = world.getBlockAt(0, 100, 2);
+        block.setType(Material.STONE);
+        server.getPluginManager().callEvent(new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
+                player.getInventory().getItemInMainHand(), block, BlockFace.NORTH, EquipmentSlot.HAND));
+        block.setType(Material.AIR);
+        server.getScheduler().performTicks(CHARGE);
+        assertEquals(0, count(ItemFrame.class));
+    }
+
+    @Test
+    void mobArtAppearsOnlyAfterChargeUp() throws IOException {
+        addFanart("a");
+        Zombie zombie = world.spawn(new Location(world, 2, 64, 2), Zombie.class);
+        server.getPluginManager().callEvent(new PlayerInteractEntityEvent(player, zombie, EquipmentSlot.HAND));
+        assertTrue(zombie.getPassengers().isEmpty());
+        server.getScheduler().performTicks(CHARGE);
+        assertEquals(1, zombie.getPassengers().size());
     }
 
     private void rightClickAir() {
@@ -586,5 +624,6 @@ class GraftingPluginTest {
 
     private void rightClickEntity(Entity target) {
         server.getPluginManager().callEvent(new PlayerInteractEntityEvent(player, target, EquipmentSlot.HAND));
+        server.getScheduler().performTicks(CHARGE);
     }
 }

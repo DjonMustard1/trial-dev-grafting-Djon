@@ -13,8 +13,42 @@ public final class GraftEffects {
             new Particle.DustOptions(Color.fromRGB(155, 77, 238), 1.1f);
     private static final Particle.DustOptions LILAC =
             new Particle.DustOptions(Color.fromRGB(218, 166, 255), 0.8f);
+    /** Potion swirl color, the same violet as the burst. Entity effect particles need full alpha. */
+    private static final Color POTION_PURPLE = Color.fromARGB(255, 155, 77, 238);
 
     private GraftEffects() {}
+
+    /**
+     * Purple potion swirls rising from one block face, covering exactly where one tile of
+     * art appears. Called once per tile so big grafts glow across their whole area.
+     */
+    public static void potionSwirlOnFace(Location blockCenter, org.bukkit.block.BlockFace face) {
+        World world = blockCenter.getWorld();
+        if (world == null) {
+            return;
+        }
+        Location surface = blockCenter.clone().add(face.getModX() * 0.56, face.getModY() * 0.56, face.getModZ() * 0.56);
+        // Spread across the face, flat against it.
+        double spreadX = face.getModX() != 0 ? 0.03 : 0.38;
+        double spreadY = face.getModY() != 0 ? 0.03 : 0.38;
+        double spreadZ = face.getModZ() != 0 ? 0.03 : 0.38;
+        world.spawnParticle(Particle.ENTITY_EFFECT, surface, 10, spreadX, spreadY, spreadZ, 1.0, POTION_PURPLE);
+    }
+
+    /** Purple potion swirls around a mob's body, where its art is about to ride. */
+    public static void potionSwirlAround(org.bukkit.entity.Entity target) {
+        Location center = target.getLocation().add(0, target.getHeight() / 2, 0);
+        World world = center.getWorld();
+        if (world == null) {
+            return;
+        }
+        double radius = Math.max(0.3, target.getWidth() / 2);
+        world.spawnParticle(Particle.ENTITY_EFFECT, center, 24,
+                radius, Math.max(0.3, target.getHeight() / 2), radius, 1.0, POTION_PURPLE);
+        // A second puff above the head, where the art itself floats.
+        world.spawnParticle(Particle.ENTITY_EFFECT, center.clone().add(0, target.getHeight() / 2 + 0.6, 0), 12,
+                0.45, 0.45, 0.45, 1.0, POTION_PURPLE);
+    }
 
     /** A graft settles into the target. */
     public static void graftApplied(Location where) {

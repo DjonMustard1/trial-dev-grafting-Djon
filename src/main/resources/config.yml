@@ -2,6 +2,11 @@
 
 # Mobs use billboarded text art rather than block-attached item frames.
 
+effects:
+  # How long, in ticks (20 = 1 second), purple potion swirls gather where the art
+  # will appear before it does. 0 grafts instantly.
+  charge-ticks: 16
+
 text-art:
   # Longest side of text art in pixels (8 to 64). Higher looks better but costs more bandwidth.
   resolution: 32

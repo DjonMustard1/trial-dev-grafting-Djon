@@ -94,8 +94,16 @@ public final class GraftManager {
 
     /** Grafts random art onto a block face, as big as possible up to {@code width} blocks. */
     public BlockResult graftBlock(Block block, BlockFace face, int width) {
+        return graftBlock(block, face, width, null);
+    }
+
+    /**
+     * Grafts the given art (or random art if null) onto a block face, as big as possible
+     * up to {@code width} blocks.
+     */
+    public BlockResult graftBlock(Block block, BlockFace face, int width, Fanart chosen) {
         checkWidth(width);
-        Fanart art = library.random();
+        Fanart art = chosen != null ? chosen : library.random();
         if (art == null) {
             return BlockResult.NO_ART;
         }
@@ -111,6 +119,7 @@ public final class GraftManager {
                 swapped.tiles().add(tile);
             }
             blockGrafts.put(id, swapped);
+            potionSwirl(block.getWorld(), face, swapped);
             GraftEffects.graftApplied(centerOf(block.getWorld(), swapped));
             return new BlockResult(BlockResult.Status.GRAFTED, art, width);
         }
@@ -118,8 +127,34 @@ public final class GraftManager {
         if (placed == 0) {
             return BlockResult.NO_SPACE;
         }
+        potionSwirl(block.getWorld(), face, blockGrafts.get(id));
         GraftEffects.graftApplied(centerOf(block.getWorld(), blockGrafts.get(id)));
         return new BlockResult(BlockResult.Status.GRAFTED, art, placed);
+    }
+
+    /**
+     * The blocks that art would cover if grafted here now, trying {@code width} and then
+     * smaller sizes, exactly like {@link #graftBlock}. Empty if it cannot be grafted.
+     */
+    public List<Block> previewBlock(Block block, BlockFace face, int width, Fanart art) {
+        checkWidth(width);
+        if (art == null) {
+            return List.of();
+        }
+        for (int size = width; size >= 1; size--) {
+            List<PlannedTile> plan = plan(block, face, art, size);
+            if (plan != null) {
+                return plan.stream().map(PlannedTile::support).toList();
+            }
+        }
+        return List.of();
+    }
+
+    private void potionSwirl(World world, BlockFace face, BlockGraft graft) {
+        for (Tile tile : graft.tiles()) {
+            GraftEffects.potionSwirlOnFace(new org.bukkit.Location(world,
+                    tile.support().x() + 0.5, tile.support().y() + 0.5, tile.support().z() + 0.5), face);
+        }
     }
 
     /**
@@ -136,6 +171,7 @@ public final class GraftManager {
         Block anchor = id.anchor().toBlock(block.getWorld());
         int placed = place(anchor, face, previous.art(), width);
         if (placed > 0) {
+            potionSwirl(block.getWorld(), face, blockGrafts.get(id));
             GraftEffects.graftApplied(centerOf(block.getWorld(), blockGrafts.get(id)));
         }
         return placed;
@@ -407,12 +443,18 @@ public final class GraftManager {
     }
 
     public Fanart graftMob(Entity mob, int width) {
+        return graftMob(mob, width, null);
+    }
+
+    /** Grafts the given art (or random art if null) onto a mob. */
+    public Fanart graftMob(Entity mob, int width, Fanart chosen) {
         checkWidth(width);
-        Fanart art = library.random();
+        Fanart art = chosen != null ? chosen : library.random();
         if (art == null) {
             return null;
         }
         if (!attachRider(mob, new RiderGraft(art, false, width))) return null;
+        GraftEffects.potionSwirlAround(mob);
         GraftEffects.graftApplied(mob.getLocation().add(0, mob.getHeight() / 2, 0));
         return art;
     }
@@ -441,6 +483,7 @@ public final class GraftManager {
                 || !attachRider(mob, new RiderGraft(previous.art(), false, width))) {
             return false;
         }
+        GraftEffects.potionSwirlAround(mob);
         GraftEffects.graftApplied(mob.getLocation().add(0, mob.getHeight() / 2, 0));
         return true;
     }

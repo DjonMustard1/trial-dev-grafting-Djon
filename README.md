@@ -39,8 +39,10 @@ itself stops existing.
 - **Temporary by design:** graft entities are never saved, so a restart wipes them.
   While the server runs, grafts survive chunk reloads, and block art disappears if
   its block is removed in any way (mined, pushed by a piston, washed away, exploded).
-- A brief purple firework-like burst when a graft succeeds, with gray motes
-  when it breaks.
+- Purple potion swirls gather on every block (or around the mob) where the art
+  is about to appear, then the art lands with a purple firework-like burst. Gray
+  motes when a graft breaks. If the block is broken or the mob dies while the
+  swirl is charging, nothing is grafted.
 
 ## Usage
 
@@ -97,6 +99,8 @@ on the longest side for text art. Both can be tuned in `config.yml`.
 `plugins/Grafting/config.yml`:
 
 ```yaml
+effects:
+  charge-ticks: 16      # potion swirl time before the art appears (20 = 1 s, 0 = instant)
 text-art:
   resolution: 32        # longest side of text art, 8 to 64
   mob-size: 1.5         # art height in blocks
